@@ -13,8 +13,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Update system
-      - name: Update system packages
+      # Update system packages
+      - name: Update system
         run: |
           sudo apt update && sudo apt upgrade -y
 
@@ -30,7 +30,7 @@ jobs:
           echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
 
       # Install Node.js LTS (Iron)
-      - name: Install Node.js LTS (Iron)
+      - name: Install Node.js
         run: |
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
@@ -39,16 +39,15 @@ jobs:
           node -v
           npm -v
 
-      # Enable Corepack + Yarn 4.4.1
-      - name: Install Yarn 4.4.1
+      # Use Yarn 3 for Backstage
+      - name: Use Yarn 3
         run: |
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-          corepack enable
-          yarn set version 4.4.1
+          corepack prepare yarn@3.6.1 --activate
           yarn -v
 
-      # Install Docker engine
+      # Install Docker
       - name: Install Docker
         run: |
           sudo apt install -y ca-certificates curl gnupg lsb-release
@@ -64,7 +63,7 @@ jobs:
           sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
           sudo usermod -aG docker $USER
 
-      # Verify Tools
+      # Verify tools
       - name: Verify installations
         run: |
           echo "--- Build Tools ---"
@@ -82,8 +81,10 @@ jobs:
           docker --version
           docker compose version || true
 
-      # Create Backstage App
+      # Create Backstage app (non-interactive)
       - name: Create Backstage App
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
@@ -91,17 +92,10 @@ jobs:
           cd $HOME
           echo "my-backstage-app" | npx @backstage/create-app@latest
 
-      # Fix Yarn lockfile for Backstage (allow modification)
-      - name: Fix Yarn lockfile
-        run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-
-          cd $HOME/my-backstage-app
-          yarn install --immutable=false
-
-      # Build Backstage
+      # Build Backstage app
       - name: Build Backstage
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
