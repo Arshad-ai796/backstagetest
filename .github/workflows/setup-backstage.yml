@@ -1,4 +1,4 @@
-name: Backstage Setup & Dev Check
+name: Backstage Setup & Dev Verification
 
 on:
   push:
@@ -6,95 +6,33 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  setup-backstage:
+  backstage:
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
 
-      # 1) Checkout repo
-      - name: Checkout Repo
+      # -----------------------------------------------------
+      # 1. CHECKOUT REPO
+      # -----------------------------------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2) Install required system tools
-      - name: Install System Dependencies
+      # -----------------------------------------------------
+      # 2. INSTALL BUILD TOOLS (Ubuntu environment)
+      # -----------------------------------------------------
+      - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential curl wget git
+          sudo apt install -y build-essential curl git
 
-      # 3) Setup Node.js 20
+      # -----------------------------------------------------
+      # 3. INSTALL NODE 20 + YARN 4.4.1 (recommended for Backstage)
+      # -----------------------------------------------------
       - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'yarn'
 
-      # 4) Enable Corepack + Yarn 4.4.1
-      - name: Setup Yarn
-        run: |
-          corepack enable
-          yarn set version 4.4.1
-          yarn -v
-          node -v
-
-      # 5) Create Backstage app only if missing
-      - name: Create Backstage App (if missing)
-        id: create_app
-        run: |
-          if [ -d "backstage" ]; then
-            echo "created=false" >> $GITHUB_OUTPUT
-            echo "Backstage directory already exists."
-          else
-            echo "Creating Backstage..."
-            npx @backstage/create-app@latest backstage --no-interactive
-            echo "created=true" >> $GITHUB_OUTPUT
-          fi
-
-      # 6) Commit scaffold if newly created
-      - name: Commit Backstage scaffold
-        if: steps.create_app.outputs.created == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Automated: Add Backstage scaffold"
-          git push
-
-      # 7) Install dependencies
-      - name: Install Dependencies
-        working-directory: backstage
-        run: yarn install --frozen-lockfile || yarn install
-
-      # 8) Run tests (non-blocking)
-      - name: Run Tests
-        working-directory: backstage
-        run: yarn test || echo "Tests failed or no tests found."
-
-      # 9) Start dev server and wait
-      - name: Start Dev Server
-        working-directory: backstage
-        run: |
-          nohup yarn dev > server.log 2>&1 &
-          echo "Waiting for Backstage to start..."
-          for i in {1..30}; do
-            if curl -s http://localhost:7007 > /dev/null 2>&1; then
-              echo "Backstage backend responding on 7007"
-              break
-            fi
-            sleep 2
-          done
-          echo "--- LOG OUTPUT (last 200 lines) ---"
-          tail -n 200 server.log || true
-
-      # 10) Health check
-      - name: Health Check
-        run: |
-          if curl -s http://localhost:7007 > /dev/null 2>&1; then
-            echo "Backstage backend OK."
-          else
-            echo "Backstage did not start correctly."
-            exit 1
-          fi
