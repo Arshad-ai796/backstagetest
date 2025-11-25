@@ -1,95 +1,82 @@
-name: Backstage Setup & Dev Verification
+name: Setup Full Environment
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch: {}
+  pull_request:
 
 jobs:
-  backstage:
+  setup-environment:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
-
-      # 1. Checkout code
+      # Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      # 2. Install system dependencies
-      - name: Install system dependencies
+      # Update system
+      - name: Update system packages
         run: |
-          sudo apt update
-          sudo apt install -y build-essential curl git
+          sudo apt update && sudo apt upgrade -y
 
-      # 3. Setup Node (NO YARN CACHE → FIXES YOUR ERROR)
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      # 4. Enable Yarn
-      - name: Setup Yarn 4.4.1
+      # Install build tools
+      - name: Install build essentials
         run: |
+          sudo apt install -y curl wget git build-essential make
+
+      # Install NVM
+      - name: Install NVM
+        run: |
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+          echo 'export NVM_DIR="$HOME/.nvm"' >> $GITHUB_ENV
+          echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"' >> $GITHUB_ENV
+
+      # Load NVM & install Node LTS (Iron)
+      - name: Install Node.js LTS (Iron)
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          nvm install lts/iron
+          nvm use lts/iron
+          node -v
+          npm -v
+
+      # Enable corepack + Yarn 4.4.1
+      - name: Install Yarn 4.4.1
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
           corepack enable
           yarn set version 4.4.1
           yarn -v
 
-      # 5. Create Backstage app if missing
-      - name: Create Backstage App if missing
-        id: create
+      # Install Docker engine
+      - name: Install Docker
         run: |
-          if [ -d "backstage" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Backstage folder already exists."
-          else
-            echo "Creating Backstage app..."
-            npx @backstage/create-app@latest backstage --no-interactive
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
+          sudo apt install -y ca-certificates curl gnupg lsb-release
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+            | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+            https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) stable" \
+            | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt update
+          sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+          sudo usermod -aG docker $USER
 
-      # 6. Commit new scaffold
-      - name: Commit Backstage scaffold
-        if: steps.create.outputs.exists == 'false'
+      # Verify Tools
+      - name: Verify installations
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Automated: Add Backstage scaffold"
-          git push origin main
+          echo "--- Build Tools ---"
+          make --version
+          gcc --version
 
-      # 7. Install dependencies (NO IMMUTABLE → FIXES ERRORS)
-      - name: Install dependencies
-        working-directory: backstage
-        run: |
-          yarn install
+          echo "--- Node & Yarn ---"
+          node -v
+          npm -v
+          yarn -v
 
-      # 8. Optional tests
-      - name: Run tests
-        working-directory: backstage
-        run: |
-          yarn test || echo "No tests available"
-
-      # 9. Boot Backstage dev in background
-      - name: Start Backstage server
-        working-directory: backstage
-        run: |
-          nohup yarn dev > server.log 2>&1 &
-          echo "Waiting for Backstage to start..."
-          for i in {1..40}; do
-            if curl -s http://localhost:7007 >/dev/null; then
-              echo "Backstage backend is UP ✔"
-              break
-            fi
-            sleep 2
-          done
-          echo "----- LOGS -----"
-          tail -n 100 server.log || true
-
-      # 10. Final health check
-      - name: Health check
-        run: |
-          curl -I http://localhost:7007 || exit 1
+          echo "--- Docker ---"
+          docker --version
+          docker compose version || true
