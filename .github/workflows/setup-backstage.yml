@@ -1,6 +1,5 @@
-name: Full Backstage Setup (create, install, dev-check)
+name: Backstage Setup & Dev Check
 
-# Run on push to main (change branches as you like)
 on:
   push:
     branches: [ main ]
@@ -10,114 +9,92 @@ jobs:
   setup-backstage:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # allow pushing changes back
+      contents: write
+
     steps:
-      # 1) Checkout repository (fetch full history to allow pushes)
-      - name: Checkout repo
+
+      # 1) Checkout repo
+      - name: Checkout Repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: true
 
-      # 2) Install system build tools (matches your step 1 / step2)
-      - name: Install build-essential
+      # 2) Install required system tools
+      - name: Install System Dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential make curl wget git
+          sudo apt install -y build-essential curl wget git
 
-      # 3) Setup Node.js (use setup-node rather than installing nvm for reliability)
+      # 3) Setup Node.js 20
       - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: 'yarn'
 
-      # 4) Enable corepack and set Yarn version (your step: Yarn 4.4.1)
-      - name: Enable Corepack and set Yarn
+      # 4) Enable Corepack + Yarn 4.4.1
+      - name: Setup Yarn
         run: |
           corepack enable
           yarn set version 4.4.1
           yarn -v
           node -v
-          npm -v
 
-      # 5) (Optional) Check if a backstage folder already exists and create app if missing.
-      #    Use non-interactive create to avoid prompts.
-      - name: Create Backstage app (if missing)
+      # 5) Create Backstage app only if missing
+      - name: Create Backstage App (if missing)
         id: create_app
         run: |
-          APP_DIR="backstage"
-          if [ -d "$APP_DIR" ]; then
-            echo "Backstage app folder '$APP_DIR' already exists — skipping scaffold."
-            echo "::set-output name=created::false"
+          if [ -d "backstage" ]; then
+            echo "created=false" >> $GITHUB_OUTPUT
+            echo "Backstage directory already exists."
           else
-            echo "Creating Backstage app into '$APP_DIR' (non-interactive)..."
-            npx @backstage/create-app@latest "$APP_DIR" --no-interactive || ( echo "Create failed"; exit 1 )
-            echo "::set-output name=created::true"
+            echo "Creating Backstage..."
+            npx @backstage/create-app@latest backstage --no-interactive
+            echo "created=true" >> $GITHUB_OUTPUT
           fi
 
-      # 6) If the create step created new files, commit & push them to the repo so scaffold persists
-      - name: Commit & push scaffold (if created)
+      # 6) Commit scaffold if newly created
+      - name: Commit Backstage scaffold
         if: steps.create_app.outputs.created == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "chore: add Backstage scaffold (automated)"
-          git push origin HEAD:main
+          git add .
+          git commit -m "Automated: Add Backstage scaffold"
+          git push
 
-      # 7) Install project dependencies (uses created folder or existing one)
-      - name: Install dependencies
+      # 7) Install dependencies
+      - name: Install Dependencies
         working-directory: backstage
         run: yarn install --frozen-lockfile || yarn install
 
-      # 8) Run tests (optional; won't fail workflow if no tests)
-      - name: Run tests
+      # 8) Run tests (non-blocking)
+      - name: Run Tests
         working-directory: backstage
-        run: yarn test || echo "No tests or tests failed (non-blocking for now)"
+        run: yarn test || echo "Tests failed or no tests found."
 
-      # 9) Start Backstage dev server in background and wait for it to boot
-      - name: Start dev server (background)
+      # 9) Start dev server and wait
+      - name: Start Dev Server
         working-directory: backstage
         run: |
-          # start in background; logs go to dev-server.log
-          nohup yarn dev > dev-server.log 2>&1 & echo $! > /tmp/backstage_pid
-          echo "Waiting for server to come up..."
-          # try for up to 60 seconds
+          nohup yarn dev > server.log 2>&1 &
+          echo "Waiting for Backstage to start..."
           for i in {1..30}; do
-            if curl -sSf http://localhost:7007/ > /dev/null 2>&1 || curl -sSf http://localhost:3000/ > /dev/null 2>&1; then
-              echo "Server is responding"
+            if curl -s http://localhost:7007 > /dev/null 2>&1; then
+              echo "Backstage backend responding on 7007"
               break
             fi
             sleep 2
-            echo "waiting..."
           done
-          echo "=== tail dev-server.log (last 200 lines) ==="
-          tail -n 200 dev-server.log || true
+          echo "--- LOG OUTPUT (last 200 lines) ---"
+          tail -n 200 server.log || true
 
-      # 10) Health check: prefer backend port 7007, fall back to 3000
-      - name: Health check endpoints
+      # 10) Health check
+      - name: Health Check
         run: |
-          if curl -sSf http://localhost:7007/ > /dev/null 2>&1; then
-            echo "Backend (7007) OK"
-            curl -I http://localhost:7007/
-          elif curl -sSf http://localhost:3000/ > /dev/null 2>&1; then
-            echo "Frontend (3000) OK"
-            curl -I http://localhost:3000/
+          if curl -s http://localhost:7007 > /dev/null 2>&1; then
+            echo "Backstage backend OK."
           else
-            echo "No responding endpoint on 7007 or 3000"
+            echo "Backstage did not start correctly."
             exit 1
-          fi
-
-      # 11) (Optional) build docker image if you want a container
-      - name: Build docker image (optional)
-        if: always()
-        working-directory: backstage
-        run: |
-          # ubuntu-latest runner already has docker installed. Build an image if Dockerfile exists.
-          if [ -f Dockerfile ]; then
-            docker build -t backstage-app:ci .
-            echo "Docker image built"
-          else
-            echo "No Dockerfile found; skipping docker build"
           fi
