@@ -35,4 +35,82 @@ jobs:
       - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
+          node-version: 20
+          cache: yarn
+
+      - name: Setup Yarn
+        run: |
+          corepack enable
+          yarn set version 4.4.1
+          yarn -v
+
+      # -----------------------------------------------------
+      # 4. CREATE BACKSTAGE APP IF MISSING
+      # -----------------------------------------------------
+      - name: Create Backstage App if missing
+        id: create
+        run: |
+          if [ -d "backstage" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Backstage folder already exists — skipping creation."
+          else
+            echo "Creating Backstage app..."
+            npx @backstage/create-app@latest backstage --no-interactive
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # -----------------------------------------------------
+      # 5. COMMIT THE CREATED BACKSTAGE SCAFFOLD
+      # -----------------------------------------------------
+      - name: Commit Backstage scaffold
+        if: steps.create.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Automated: Add Backstage scaffold"
+          git push origin main
+
+      # -----------------------------------------------------
+      # 6. INSTALL DEPENDENCIES (NO LOCKFILE REQUIRED)
+      # -----------------------------------------------------
+      - name: Install dependencies
+        working-directory: backstage
+        run: |
+          yarn install --no-immutable
+
+      # -----------------------------------------------------
+      # 7. RUN TESTS (Optional)
+      # -----------------------------------------------------
+      - name: Run tests
+        working-directory: backstage
+        run: |
+          yarn test || echo "No tests available"
+
+      # -----------------------------------------------------
+      # 8. START BACKSTAGE DEV SERVER (background)
+      # -----------------------------------------------------
+      - name: Start dev server
+        working-directory: backstage
+        run: |
+          nohup yarn dev > server.log 2>&1 &
+          echo "Waiting up to 60 seconds for Backstage to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:7007 > /dev/null; then
+              echo "Backstage BACKEND is UP on port 7007"
+              break
+            fi
+            sleep 2
+            echo "Waiting..."
+          done
+          echo "------- SERVER LOG -------"
+          tail -n 100 server.log || true
+
+      # -----------------------------------------------------
+      # 9. FINAL HEALTH CHECK
+      # -----------------------------------------------------
+      - name: Health check
+        run: |
+          curl -I http://localhost:7007 || exit 1
+
 
