@@ -1,5 +1,5 @@
 
-name: Setup Full Environment
+   name: Setup Full Environment
 
 on:
   push:
@@ -92,6 +92,15 @@ jobs:
           cd $HOME
           echo "my-backstage-app" | npx @backstage/create-app@latest
 
+      # Fix Yarn lockfile for Backstage (allow modification)
+      - name: Fix Yarn lockfile
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+          cd $HOME/my-backstage-app
+          yarn install --immutable=false
+
       # Build Backstage
       - name: Build Backstage
         run: |
@@ -101,3 +110,6 @@ jobs:
           cd $HOME/my-backstage-app
           yarn tsc
           yarn build:backend
+ 
+ 
+     
