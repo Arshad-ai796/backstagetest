@@ -1,5 +1,4 @@
-
-   name: Setup Full Environment
+name: Setup Full Environment
 
 on:
   push:
@@ -110,6 +109,3 @@ jobs:
           cd $HOME/my-backstage-app
           yarn tsc
           yarn build:backend
- 
- 
-     
