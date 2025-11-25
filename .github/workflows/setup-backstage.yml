@@ -81,32 +81,20 @@ jobs:
           echo "--- Docker ---"
           docker --version
           docker compose version || true
-
-        # Create Backstage app
       - name: Create Backstage App
-        run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+  			run: |
+    			export NVM_DIR="$HOME/.nvm"
+   				[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-          cd ~
-          npx @backstage/create-app@latest --skip-install --yes --path my-backstage-app
+   				 cd ~
+   				 echo "my-backstage-app" | npx @backstage/create-app@latest
 
-      # Install dependencies
-      - name: Install Backstage dependencies
-        run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+     - name: Build Backstage
+       run: |
+        export NVM_DIR="$HOME/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-          cd ~/my-backstage-app
-          yarn install
-
-      # Build Backstage (safe for CI)
-      - name: Build Backstage app
-        run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-
-          cd ~/my-backstage-app
-          yarn tsc
-          yarn build:backend
+        cd ~/my-backstage-app
+        yarn tsc
+        yarn build:backend
 
