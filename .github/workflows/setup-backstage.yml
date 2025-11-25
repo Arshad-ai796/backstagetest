@@ -1,3 +1,4 @@
+
 name: Setup Full Environment
 
 on:
@@ -22,16 +23,14 @@ jobs:
       - name: Install build essentials
         run: |
           sudo apt install -y curl wget git build-essential make
-     
+
+      # Install NVM
       - name: Install NVM
         run: |
           curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
           echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
 
-    
-
-
-      # Load NVM & install Node LTS (Iron)
+      # Install Node.js LTS (Iron)
       - name: Install Node.js LTS (Iron)
         run: |
           export NVM_DIR="$HOME/.nvm"
@@ -41,7 +40,7 @@ jobs:
           node -v
           npm -v
 
-      # Enable corepack + Yarn 4.4.1
+      # Enable Corepack + Yarn 4.4.1
       - name: Install Yarn 4.4.1
         run: |
           export NVM_DIR="$HOME/.nvm"
@@ -74,6 +73,8 @@ jobs:
           gcc --version
 
           echo "--- Node & Yarn ---"
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
           node -v
           npm -v
           yarn -v
@@ -81,20 +82,22 @@ jobs:
           echo "--- Docker ---"
           docker --version
           docker compose version || true
+
+      # Create Backstage App
       - name: Create Backstage App
-  			run: |
-    			export NVM_DIR="$HOME/.nvm"
-   				[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-   				 cd ~
-   				 echo "my-backstage-app" | npx @backstage/create-app@latest
+          cd $HOME
+          echo "my-backstage-app" | npx @backstage/create-app@latest
 
-     - name: Build Backstage
-       run: |
-        export NVM_DIR="$HOME/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+      # Build Backstage
+      - name: Build Backstage
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-        cd ~/my-backstage-app
-        yarn tsc
-        yarn build:backend
-
+          cd $HOME/my-backstage-app
+          yarn tsc
+          yarn build:backend
