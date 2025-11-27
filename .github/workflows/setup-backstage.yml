@@ -103,3 +103,10 @@ jobs:
           cd $HOME/my-backstage-app
           yarn tsc
           yarn build:backend
+      - name: Commit and Push generated Backstage app
+        run: |
+          git config user.email "action@github.com"
+          git config user.name "GitHub Action"
+          git add .
+          git commit -m "Generated Backstage app from GitHub Actions" || echo "Nothing to commit"
+          git push     
