@@ -81,7 +81,7 @@ jobs:
           docker --version
           docker compose version || true
 
-      # Create Backstage app (non-interactive)
+          # Create Backstage app (non-interactive)
       - name: Create Backstage App
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
@@ -89,22 +89,14 @@ jobs:
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-          cd $HOME
+          cd /tmp
           echo "my-backstage-app" | npx @backstage/create-app@latest
-      - name: Move generated app into repo
+
+      # Copy Backstage app into repository folder
+      - name: Copy Backstage app into repo
         run: |
-          rm -rf ./* .github  # ensure clean repo except workflow
-          cp -R /tmp/backstage/my-backstage-app/* .
-          cp -R /tmp/backstage/my-backstage-app/.* . || true
-
-
-
-
-
-
-
-
-          
+          rsync -av /tmp/my-backstage-app/ $GITHUB_WORKSPACE/ --exclude=.git
+          cd $GITHUB_WORKSPACE
 
       # Build Backstage app
       - name: Build Backstage
@@ -114,11 +106,12 @@ jobs:
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-          cd $HOME/my-backstage-app
+          cd $GITHUB_WORKSPACE
+          yarn install
           yarn tsc
           yarn build:backend
 
-
+      # Commit & Push generated app
       - name: Commit & Push generated app
         run: |
           git config --global user.email "github-actions@github.com"
@@ -126,4 +119,5 @@ jobs:
 
           git add .
           git commit -m "Add generated Backstage app" || echo "Nothing to commit"
-          git push origin HEAD:main 
+          git push origin HEAD:main
+
