@@ -91,6 +91,20 @@ jobs:
 
           cd $HOME
           echo "my-backstage-app" | npx @backstage/create-app@latest
+      - name: Move generated app into repo
+        run: |
+          rm -rf ./* .github  # ensure clean repo except workflow
+          cp -R /tmp/backstage/my-backstage-app/* .
+          cp -R /tmp/backstage/my-backstage-app/.* . || true
+
+
+
+
+
+
+
+
+          
 
       # Build Backstage app
       - name: Build Backstage
