@@ -2,122 +2,72 @@ name: Setup Full Environment
 
 on:
   push:
-  pull_request:
 
 jobs:
   setup-environment:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repository
+      # -------------------------
+      # CHECKOUT
+      # -------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Update system packages
-      - name: Update system
-        run: |
-          sudo apt update && sudo apt upgrade -y
+      # -------------------------
+      # SETUP NODE
+      # -------------------------
+      - name: Setup Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/iron'
 
-      # Install build tools
-      - name: Install build essentials
+      # -------------------------
+      # ENABLE YARN 4.4.1
+      # -------------------------
+      - name: Enable Yarn 4.4.1
         run: |
-          sudo apt install -y curl wget git build-essential make
-
-      # Install NVM
-      - name: Install NVM
-        run: |
-          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-          echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
-
-      # Install Node.js LTS (Iron)
-      - name: Install Node.js
-        run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-          nvm install lts/iron
-          nvm use lts/iron
-          node -v
-          npm -v
-
-      # Use Yarn 3 for Backstage
-      - name: Use Yarn 3
-        run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-          corepack prepare yarn@3.6.1 --activate
+          corepack enable
+          corepack prepare yarn@4.4.1 --activate
           yarn -v
-
-      # Install Docker
-      - name: Install Docker
+      # -------------------------
+      # VERIFY DOCKER
+      # -------------------------
+      - name: Verify Docker
         run: |
-          sudo apt install -y ca-certificates curl gnupg lsb-release
-          sudo mkdir -p /etc/apt/keyrings
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-            | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-          echo \
-            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-            https://download.docker.com/linux/ubuntu \
-            $(lsb_release -cs) stable" \
-            | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-          sudo apt update
-          sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-          sudo usermod -aG docker $USER
-
-      # Verify tools
-      - name: Verify installations
-        run: |
-          echo "--- Build Tools ---"
-          make --version
-          gcc --version
-
-          echo "--- Node & Yarn ---"
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-          node -v
-          npm -v
-          yarn -v
-
-          echo "--- Docker ---"
           docker --version
           docker compose version || true
-
-          # Create Backstage app (non-interactive)
+      # -------------------------
+      # CREATE BACKSTAGE APP
+      # -------------------------
       - name: Create Backstage App
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-
           cd /tmp
           echo "my-backstage-app" | npx @backstage/create-app@latest
-
-      # Copy Backstage app into repository folder
-      - name: Copy Backstage app into repo
+      # -------------------------
+      # COPY BACKSTAGE APP → REPO
+      # -------------------------
+      - name: Copy Backstage App Into Repo
         run: |
           rsync -av /tmp/my-backstage-app/ $GITHUB_WORKSPACE/ --exclude=.git
-          cd $GITHUB_WORKSPACE
-
-      # Build Backstage app
-      - name: Build Backstage
+      # -------------------------
+      # INSTALL DEPENDENCIES
+      # -------------------------
+      - name: Install Backstage Dependencies
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-
-          cd $GITHUB_WORKSPACE
           yarn install
-          yarn tsc
-          yarn build:backend
+      # -------------------------
+      # TYPE CHECK
+      # -------------------------
+      - name: Type Check
+        run: yarn tsc
 
-      # Commit & Push generated app
-      - name: Commit & Push generated app
-        run: |
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "github-actions"
-
-          git add .
-          git commit -m "Add generated Backstage app" || echo "Nothing to commit"
-          git push origin HEAD:main
-
+      # -------------------------
+      # BUILD BACKEND
+      # -------------------------
+      - name: Build Backstage Backend
+        run: yarn build:backend
