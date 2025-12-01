@@ -68,6 +68,40 @@ jobs:
 
       # -------------------------
       # BUILD BACKEND
+        - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # -------------------------
+      # BUILD DOCKER IMAGE
+      # -------------------------
+      - name: Build Backstage Docker Image
+        run: |
+          docker buildx build . \
+            -f packages/backend/Dockerfile \
+            --tag myorg/backstage:latest \
+            --load
+
+      # -------------------------
+      # RUN CONTAINER
+      # -------------------------
+      - name: Run Backstage Container
+        run: |
+          docker rm -f backstage || true
+          docker run -d --name backstage -p 7007:7007 myorg/backstage:latest
+          docker ps -a
+      
+      
+      
+      
+      
+      
+        
+      
+      
+
+
+
+      
       # -------------------------
       - name: Build Backstage Backend
         run: yarn build:backend
