@@ -85,6 +85,29 @@ jobs:
             --tag myorg/backstage:latest \
             --load
 
+      
+ # SAVE IMAGE AS TAR
+      # -------------------------
+      - name: Save Docker Image to Tar
+        run: |
+          docker save myorg/backstage:latest -o backstage-image.tar
+
+      # -------------------------
+      # UPLOAD IMAGE AS ARTIFACT
+      # -------------------------
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backstage-docker-image
+          path: backstage-image.tar
+
+      
+      
+      
+      
+      
+      
+      
       # -------------------------
       # RUN CONTAINER
       # -------------------------
