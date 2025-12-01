@@ -65,6 +65,10 @@ jobs:
       # -------------------------
       - name: Type Check
         run: yarn tsc
+       
+      # -------------------------
+      - name: Build Backstage Backend
+        run: yarn build:backend
 
       # -------------------------
       # BUILD BACKEND
@@ -101,7 +105,4 @@ jobs:
 
 
 
-      
-      # -------------------------
-      - name: Build Backstage Backend
-        run: yarn build:backend
+     
