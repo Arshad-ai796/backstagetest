@@ -98,7 +98,8 @@ jobs:
           POSTGRES_PASSWORD: backstage
           POSTGRES_DB: backstage
         run: |
-          yarn workspace backend backstage-cli migrations:apply
+          yarn workspace backend migrate || yarn backstage-cli backend:database-migrate
+
 
 
 
