@@ -184,7 +184,7 @@ jobs:
       - name: Run Backstage Container
         run: |
           docker rm -f backstage || true
-          docker run -d --name backstage -p 7007:7007 myorg/backstage:latest
+          docker run -d --name backstage -p 7007:7007 myorg/backstage-sqlite:latest
           docker ps -a
 
      
