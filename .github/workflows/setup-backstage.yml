@@ -95,9 +95,11 @@ jobs:
         run: yarn build:backend
 
       # -------------------------
-      # APPLY DATABASE MIGRATIONS
+      # APPLY DATABASE MIGRATIONS  
+      
       - name: Apply Database Migrations
-        run: yarn workspace app backstage-cli migrate apply
+        run: yarn workspace app backstage-cli migrate
+
 
       
       
