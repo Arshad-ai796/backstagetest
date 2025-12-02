@@ -15,11 +15,13 @@ jobs:
             POSTGRES_DB: backstage
           ports:
             - 5432:5432
+          
           options: >-
             --health-cmd="pg_isready -U backstage"
             --health-interval=10s
             --health-timeout=5s
-            --health-retries=5  
+            --health-retries=5
+
     steps:
       # -------------------------
       # CHECKOUT
@@ -114,7 +116,7 @@ jobs:
       # BUILD DOCKER IMAGE WITH SQLITE
       - name: Build Backstage Docker Image with SQLite
         run: |
-          docker buildx build .             -f packages/backend/Dockerfile             --tag myorg/backstage-sqlite:latest             --load
+          docker buildx build .             -f packages/backend/Dockerfile             --tag myorg/backstage-app:latest             --load
 
       
       
@@ -159,7 +161,7 @@ jobs:
       # -------------------------
       - name: Save Docker Image to Tar
         run: |
-          docker save myorg/backstage-sqlite:latest -o backstage-image.tar
+          docker save myorg/backstage-app:latest -o backstage-image.tar
 
       # -------------------------
       # UPLOAD IMAGE AS ARTIFACT
@@ -183,7 +185,7 @@ jobs:
       - name: Run Backstage Container
         run: |
           docker rm -f backstage || true
-          docker run -d --name backstage -p 7007:7007 myorg/backstage-sqlite:latest
+          docker run -d --name backstage -p 7007:7007 myorg/backstage-app:latest
           docker ps -a
 
      
