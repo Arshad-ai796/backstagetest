@@ -62,23 +62,18 @@ jobs:
           yarn install
       # -------------------------
       - name: Configure SQLite for Backstage
+        run:  |
+            echo -e "backend:\n  database:\n    client: sqlite3\n    connection:\n      filename: ./database.sqlite" > app-config.local.yaml
 
-        run: |
-            cat << 'EOF' > app-config.local.yaml
-              backend:
-              database:
-                client: sqlite3
-                connection:
-                  filename: ./database.sqlite
-               EOF
-
-       
       
-      
-      
-      
-      
-      
+                  
+                 
+                  
+                   
+                   
+                  
+                  
+                   
       
       
       
