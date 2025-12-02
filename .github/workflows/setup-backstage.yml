@@ -103,8 +103,8 @@ jobs:
           POSTGRES_USER: backstage
           POSTGRES_PASSWORD: backstage
           POSTGRES_DB: backstage
-        run: |
-          yarn workspace backend knex migrate:latest
+   #     run: |
+    #      yarn workspace backend knex migrate:latest
 
 
 
