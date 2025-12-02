@@ -105,6 +105,14 @@ jobs:
            POSTGRES_DB: backstage
         run: |
            yarn workspace backend start
+           sleep 20
+           pkill -f "node" || true
+
+                                        
+
+        
+
+           
 
 
 
