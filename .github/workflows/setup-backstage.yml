@@ -6,7 +6,7 @@ on:
 jobs:
   setup-environment:
     runs-on: ubuntu-latest
-      services:
+    services:
         postgres:
           image: postgres:13
           env:
