@@ -160,7 +160,7 @@ jobs:
       # -------------------------
       - name: Save Docker Image to Tar
         run: |
-          docker save myorg/backstage:latest -o backstage-image.tar
+          docker save myorg/backstage-sqlite:latest -o backstage-image.tar
 
       # -------------------------
       # UPLOAD IMAGE AS ARTIFACT
