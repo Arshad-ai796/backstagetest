@@ -89,7 +89,13 @@ jobs:
         run: yarn build:backend
 
       # -------------------------
-      # APPLY DATABASE MIGRATIONS  
+      # APPLY DATABASE MIGRATIONS 
+      
+      - name: Install Knex CLI
+        run: yarn workspace backend add --dev knex
+
+      
+      
       - name: Apply Database Migrations
         env:
           POSTGRES_HOST: localhost
@@ -98,7 +104,7 @@ jobs:
           POSTGRES_PASSWORD: backstage
           POSTGRES_DB: backstage
         run: |
-          yarn workspace backend migrate || yarn backstage-cli backend:database-migrate
+          yarn workspace backend knex migrate:latest
 
 
 
