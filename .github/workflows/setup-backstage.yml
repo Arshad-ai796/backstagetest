@@ -104,9 +104,7 @@ jobs:
            POSTGRES_PASSWORD: backstage
            POSTGRES_DB: backstage
         run: |
-           yarn workspace backend start
-           sleep 20
-           pkill -f "node" || true
+           timeout 40s yarn workspace backend start
 
                                         
 
