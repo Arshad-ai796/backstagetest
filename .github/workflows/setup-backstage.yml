@@ -61,15 +61,30 @@ jobs:
         run: |
           yarn install
       # -------------------------
-      # CONFIGURE SQLITE
       - name: Configure SQLite for Backstage
         run: |
-          echo "backend:" >> app-config.yaml
-          echo "  database:" >> app-config.yaml
-          echo "    client: sqlite3" >> app-config.yaml
-          echo "    connection:" >> app-config.yaml
-          echo "      filename: /app/database.sqlite" >> app-config.yaml
+            cat << 'EOF' > app-config.local.yaml
+        backend:
+          database:
+            client: sqlite3
+            connection:
+              filename: ./database.sqlite
+       EOF
 
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       # -------------------------
       # TYPE CHECK
       - name: Type Check
