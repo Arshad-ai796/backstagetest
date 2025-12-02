@@ -97,8 +97,8 @@ jobs:
       # -------------------------
       # APPLY DATABASE MIGRATIONS  
       
-      - name: Apply Database Migrations
-        run: yarn workspace app backstage-cli migrate
+  #    - name: Apply Database Migrations
+   #     run: yarn workspace app backstage-cli migrate
 
 
       
