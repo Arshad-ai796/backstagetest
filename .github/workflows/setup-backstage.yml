@@ -55,35 +55,17 @@ jobs:
       # -------------------------
       # INSTALL DEPENDENCIES
       # -------------------------
+      
       - name: Install Backstage Dependencies
-        env:
-          YARN_ENABLE_IMMUTABLE_INSTALLS: false
-        run: |
-          yarn install
+        run: yarn install --frozen-lockfile
+ 
       # -------------------------
      
       - name: Configure SQLite for Backstage
         run:  |
             echo -e "backend:\n  database:\n    client: sqlite3\n    connection:\n      filename: ./database.sqlite" > app-config.local.yaml
 
-      
-                  
-                 
-                  
-                   
-                   
-                  
-                  
-                   
-      
-      
-      
-      
-      
-      
-      
-      
-      
+       
       # -------------------------
       # TYPE CHECK
       - name: Type Check
@@ -97,8 +79,8 @@ jobs:
       # -------------------------
       # APPLY DATABASE MIGRATIONS  
       
-  #    - name: Apply Database Migrations
-   #     run: yarn workspace app backstage-cli migrate
+      - name: Apply Database Migrations
+        run: yarn workspace app backstage-cli migrate
 
 
       
