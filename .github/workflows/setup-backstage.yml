@@ -61,29 +61,78 @@ jobs:
         run: |
           yarn install
       # -------------------------
-      # TYPE CHECK
+      # CONFIGURE SQLITE
+      - name: Configure SQLite for Backstage
+        run: |
+          echo "backend:" >> app-config.yaml
+          echo "  database:" >> app-config.yaml
+          echo "    client: sqlite3" >> app-config.yaml
+          echo "    connection:" >> app-config.yaml
+          echo "      filename: /app/database.sqlite" >> app-config.yaml
+
       # -------------------------
+      # TYPE CHECK
       - name: Type Check
         run: yarn tsc
-       
+
       # -------------------------
+      # BUILD BACKEND
       - name: Build Backstage Backend
         run: yarn build:backend
 
       # -------------------------
-      # BUILD BACKEND
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      # APPLY DATABASE MIGRATIONS
+      - name: Apply Database Migrations
+        run: yarn backstage-cli migrations apply
 
       # -------------------------
-      # BUILD DOCKER IMAGE
+      # SET UP DOCKER BUILDX
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2
+
       # -------------------------
-      - name: Build Backstage Docker Image
+      # BUILD DOCKER IMAGE WITH SQLITE
+      - name: Build Backstage Docker Image with SQLite
         run: |
-          docker buildx build . \
-            -f packages/backend/Dockerfile \
-            --tag myorg/backstage:latest \
-            --load
+          docker buildx build .             -f packages/backend/Dockerfile             --tag myorg/backstage-sqlite:latest             --load
+
+      
+      
+      
+      
+      
+       
+      
+      
+      
+       
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+       
+       
+       
+      
+      
+      
+
+
+
+
+
+
+
 
       
  # SAVE IMAGE AS TAR
