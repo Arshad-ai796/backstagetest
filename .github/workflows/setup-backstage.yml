@@ -97,8 +97,13 @@ jobs:
       # -------------------------
       # APPLY DATABASE MIGRATIONS
       - name: Apply Database Migrations
-        run: yarn backstage-cli migrations apply
+        run: yarn workspace app backstage-cli migrate apply
 
+      
+      
+      
+      
+      
       # -------------------------
       # SET UP DOCKER BUILDX
       - name: Set up Docker Buildx
