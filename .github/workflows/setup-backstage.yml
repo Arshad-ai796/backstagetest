@@ -46,14 +46,21 @@ jobs:
       # -------------------------
          # INSTALL LATEST BACKSTAGE CREATE-APP
       # -------------------------
-      - name: Install latest Backstage create-app globally
+      - name: Install Backstage create-app globally
         run: |
-            # Install globally
-            npm install -g @backstage/create-app@latest
-            # Capture npm global bin
-              NPM_GLOBAL_BIN=$(npm bin -g)
-              echo "NPM_GLOBAL_BIN=$NPM_GLOBAL_BIN" >> $GITHUB_ENV
-              echo "PATH=$PATH:$NPM_GLOBAL_BIN" >> $GITHUB_ENV
+          set -o pipefail
+          npm install -g @backstage/create-app@latest --no-fund --silent
+          STATUS=$?
+          if [ $STATUS -ne 0 ]; then
+          echo "❌ Backstage create-app install failed with exit code $STATUS"
+          exit 1
+          fi
+
+          echo "$(npm bin -g)" >> $GITHUB_PATH
+      
+      
+      
+      
       
       
       
