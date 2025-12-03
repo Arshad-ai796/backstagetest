@@ -130,7 +130,14 @@ jobs:
       # -------------------------
       - name: Copy Backstage App Into Repo
         run: |
-          rsync -av /tmp/my-backstage-app/ $GITHUB_WORKSPACE/ --exclude=.git
+          rsync -av "${RUNNER_TEMP}/my-backstage-app/my-backstage-app/" "$GITHUB_WORKSPACE/" --exclude=.git
+
+      
+      
+      
+      
+      
+      
       # -------------------------
       # INSTALL DEPENDENCIES
       # -------------------------
