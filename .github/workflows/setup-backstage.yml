@@ -109,7 +109,7 @@ jobs:
             echo "Waiting for migrations to complete..."
             sleep 40
             echo "Stopping backend process..."
-            kill $BACKEND_PID
+            kill $BACKEND_PID || true
 
 
                                         
@@ -133,7 +133,7 @@ jobs:
 
       # -------------------------
       # BUILD DOCKER IMAGE WITH SQLITE
-      - name: Build Backstage Docker Image with SQLite
+      - name: Build Backstage Docker Image 
         run: |
           docker buildx build .             -f packages/backend/Dockerfile             --tag myorg/backstage-app:latest             --load
 
