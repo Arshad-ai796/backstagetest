@@ -44,12 +44,73 @@ jobs:
       # -------------------------
       # CREATE BACKSTAGE APP
       # -------------------------
-      - name: Create Backstage App
+         # INSTALL LATEST BACKSTAGE CREATE-APP
+      # -------------------------
+      - name: Install latest Backstage create-app globally
+        run: |
+          npm install -g @backstage/create-app@latest
+          echo "PATH=$PATH:$(npm bin -g)" >> $GITHUB_ENV
+
+      # -------------------------
+      # CHECK CREATE-APP VERSION
+      # -------------------------
+      - name: Ensure latest Backstage create-app is installed
+        run: |
+          set -e
+          INSTALLED_VERSION=$(npm list -g @backstage/create-app --depth=0 --json | jq -r '.dependencies["@backstage/create-app"].version // empty')
+          LATEST_VERSION=$(npm view @backstage/create-app version)
+
+          echo "Installed version: $INSTALLED_VERSION"
+          echo "Latest version: $LATEST_VERSION"
+
+          if [ "$INSTALLED_VERSION" != "$LATEST_VERSION" ]; then
+            echo "Error: Latest Backstage create-app ($LATEST_VERSION) is not installed globally."
+            exit 1
+          fi
+          echo "Latest Backstage create-app is installed."
+
+      # -------------------------
+      # SCAFFOLD BACKSTAGE APP
+      # -------------------------
+      - name: Scaffold Backstage App
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
           cd /tmp
-          echo "my-backstage-app" | npx @backstage/create-app@latest
+          # Scaffold app non-interactively
+          npx @backstage/create-app@latest my-backstage-app --no-install
+          
+          cd my-backstage-app
+          # Upgrade all Backstage packages to latest 1.x
+          yarn up "@backstage/*"
+          # Install dependencies
+          yarn install
+
+      # -------------------------
+      # OPTIONAL: VERIFY APP
+      # -------------------------
+      - name: Verify Backstage packages
+        run: |
+          cd /tmp/my-backstage-app
+          yarn backstage-cli versions
+      
+      
+      
+      
+      
+      
+        
+        
+        
+        
+        
+        
+        
+      
+        
+        
+        
+      
       # -------------------------
       # COPY BACKSTAGE APP → REPO
       # -------------------------
