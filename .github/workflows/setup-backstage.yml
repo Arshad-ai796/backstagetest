@@ -44,60 +44,28 @@ jobs:
       # -------------------------
       # CREATE BACKSTAGE APP
       # -------------------------
-         # INSTALL LATEST BACKSTAGE CREATE-APP
-      # -------------------------
       - name: Install Backstage create-app globally
         run: |
-          set -o pipefail
           npm install -g @backstage/create-app@latest --no-fund --silent
-          STATUS=$?
-          if [ $STATUS -ne 0 ]; then
-          echo "❌ Backstage create-app install failed with exit code $STATUS"
-          exit 1
-          fi
+          # Append the global npm bin path so runner can find create-app
+          npm bin -g >> $GITHUB_PATH
 
-          echo "$(npm bin -g)" >> $GITHUB_PATH
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      # -------------------------
-      # CHECK CREATE-APP VERSION
-      # -------------------------
-      - name: Ensure latest Backstage create-app is installed
+      - name: Verify Backstage CLI availability
         run: |
-          set -e
-          INSTALLED_VERSION=$(npm list -g @backstage/create-app --depth=0 --json | jq -r '.dependencies["@backstage/create-app"].version // empty')
-          LATEST_VERSION=$(npm view @backstage/create-app version)
+        echo "PATH: $PATH"
+          which create-app || ( echo "create-app not found"; exit 1 )
+          create-app --version
 
-          echo "Installed version: $INSTALLED_VERSION"
-          echo "Latest version: $LATEST_VERSION"
-
-          if [ "$INSTALLED_VERSION" != "$LATEST_VERSION" ]; then
-            echo "Error: Latest Backstage create-app ($LATEST_VERSION) is not installed globally."
-            exit 1
-          fi
-          echo "Latest Backstage create-app is installed."
-
-      # -------------------------
       - name: Scaffold Backstage App
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
           cd /tmp
-
           create-app --yes --path my-backstage-app --skip-install
-
           cd my-backstage-app
-
           yarn up "@backstage/*"
           yarn install
+
       
       
       
@@ -129,8 +97,7 @@ jobs:
       
       
       
-      
-      # -------------------------
+  # -------------------------
       # OPTIONAL: VERIFY APP
       # -------------------------
       - name: Verify Backstage packages
