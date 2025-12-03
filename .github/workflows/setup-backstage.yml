@@ -6,22 +6,7 @@ on:
 jobs:
   setup-environment:
     runs-on: ubuntu-latest
-    services:
-        postgres:
-          image: postgres:13
-          env:
-            POSTGRES_USER: backstage
-            POSTGRES_PASSWORD: backstage
-            POSTGRES_DB: backstage
-          ports:
-            - 5432:5432
-          
-          options: >-
-            --health-cmd="pg_isready -U backstage"
-            --health-interval=10s
-            --health-timeout=5s
-            --health-retries=5
-
+    
     steps:
       # -------------------------
       # CHECKOUT
@@ -89,38 +74,125 @@ jobs:
         run: yarn build:backend
 
       # -------------------------
-      # APPLY DATABASE MIGRATIONS 
-      
-      - name: Install Knex CLI
-        run: yarn workspace backend add --dev knex
+      name: Build Standalone Backstage (SQLite)
 
-      
-      
-      - name: Apply Database Migrations
-        env:
-           POSTGRES_HOST: localhost
-           POSTGRES_PORT: 5432
-           POSTGRES_USER: backstage
-           POSTGRES_PASSWORD: backstage
-           POSTGRES_DB: backstage
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ------------------------------
+      # Checkout Source Code
+      # ------------------------------
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # ------------------------------
+      # Setup Node.js LTS
+      # ------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/iron'
+
+      # ------------------------------
+      # Enable Yarn 4
+      # ------------------------------
+      - name: Enable Yarn 4
         run: |
-            yarn workspace backend start &
-            BACKEND_PID=$!
-            echo "Waiting for migrations to complete..."
-            sleep 40
-            echo "Stopping backend process..."
-            kill $BACKEND_PID || true
+          corepack enable
+          corepack prepare yarn@4.4.1 --activate
+          yarn -v
 
+      # ------------------------------
+      # Install Backstage dependencies
+      # ------------------------------
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
 
-                                        
+      # ------------------------------
+      # Build Backstage backend
+      # ------------------------------
+      - name: Build Backstage backend
+        run: yarn build:backend
 
+      # ------------------------------
+      # Patch SQLite production config
+      # ------------------------------
+      - name: Create app-config.production.yaml
+        run: |
+          cat > app-config.production.yaml << 'EOF'
+          backend:
+            database:
+              client: sqlite3
+              connection:
+                filename: /app/data/backstage.db
+          EOF
+
+      # ------------------------------
+      # Patch Dockerfile to install SQLite & create folder
+      # ------------------------------
+      - name: Patch Dockerfile for SQLite
+        run: |
+          DOCKERFILE="packages/backend/Dockerfile"
+
+          grep -q "sqlite" "$DOCKERFILE" || \
+          sed -i '1a RUN apk add --no-cache sqlite sqlite-libs' "$DOCKERFILE"
+
+          grep -q "/app/data" "$DOCKERFILE" || \
+          sed -i '1a RUN mkdir -p /app/data' "$DOCKERFILE"
+
+      # ------------------------------
+      # Setup Docker Buildx
+      # ------------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # ------------------------------
+      # Build Docker image
+      # ------------------------------
+      - name: Build Backstage Docker image
+        run: |
+          docker buildx build . \
+            -f packages/backend/Dockerfile \
+            --tag myorg/backstage-app:latest \
+            --load
+
+      # ------------------------------
+      # Save Docker image as TAR
+      # ------------------------------
+      - name: Save Docker image to tar
+        run: |
+          docker save myorg/backstage-app:latest -o backstage-image.tar
+
+      # ------------------------------
+      # Upload Docker image artifact
+      # ------------------------------
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backstage-docker-image
+          path: backstage-image.tar
+
+      
+      
         
-
+       
+      
+                                        
+      
+        
+      
            
-
-
-
-
+      
+      
+      
+      
       
       
       
