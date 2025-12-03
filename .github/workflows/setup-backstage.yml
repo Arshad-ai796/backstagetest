@@ -55,7 +55,8 @@ jobs:
           cd "$APP_DIR"
 
           # Scaffold latest Backstage app non-interactively
-          npx --yes @backstage/create-app@latest . --skip-install
+          npx @backstage/create-app@latest my-backstage-app --no-telemetry --skip-install --yes
+
 
           # Upgrade all Backstage packages to latest 1.x
           yarn up "@backstage/*"
