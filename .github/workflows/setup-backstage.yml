@@ -86,22 +86,50 @@ jobs:
           echo "Latest Backstage create-app is installed."
 
       # -------------------------
-      # SCAFFOLD BACKSTAGE APP
-      # -------------------------
       - name: Scaffold Backstage App
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
           cd /tmp
-          # Scaffold app non-interactively
-          npx @backstage/create-app@latest my-backstage-app --no-install
-          
-          cd my-backstage-app
-          # Upgrade all Backstage packages to latest 1.x
-          yarn up "@backstage/*"
-          # Install dependencies
-          yarn install
 
+          create-app --yes --path my-backstage-app --skip-install
+
+          cd my-backstage-app
+
+          yarn up "@backstage/*"
+          yarn install
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       # -------------------------
       # OPTIONAL: VERIFY APP
       # -------------------------
