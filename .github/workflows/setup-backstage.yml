@@ -43,30 +43,26 @@ jobs:
           docker compose version || true
       # -------------------------
       # CREATE BACKSTAGE APP
+         # Scaffold latest Backstage app
       # -------------------------
-      - name: Install Backstage create-app globally
-        run: |
-          npm install -g @backstage/create-app@latest --no-fund --silent
-          # Append the global npm bin path so runner can find create-app
-          npm bin -g >> $GITHUB_PATH
-
-      - name: Verify Backstage CLI availability
-        run: |
-          echo "PATH: $PATH"
-          which create-app || ( echo "create-app not found"; exit 1 )
-          create-app --version
-
       - name: Scaffold Backstage App
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
-          cd /tmp
-          create-app --yes --path my-backstage-app --skip-install
-          cd my-backstage-app
+          # Use the runner temp directory instead of /tmp
+          APP_DIR="${RUNNER_TEMP}/my-backstage-app"
+          mkdir -p "$APP_DIR"
+          cd "$APP_DIR"
+
+          # Scaffold latest Backstage app non-interactively
+          npx --yes @backstage/create-app@latest . --skip-install
+
+          # Upgrade all Backstage packages to latest 1.x
           yarn up "@backstage/*"
+
+          # Install dependencies
           yarn install
 
-      
       
       
       
