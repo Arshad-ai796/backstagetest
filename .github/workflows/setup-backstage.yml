@@ -7,7 +7,7 @@ jobs:
   setup-environment:
     runs-on: ubuntu-latest
     
-      steps:
+    steps:
       # -------------------------
       # CHECKOUT
       # -------------------------
@@ -74,53 +74,13 @@ jobs:
         run: yarn build:backend
 
       # -------------------------
-      name: Build Standalone Backstage (SQLite)
+      # name: Build Standalone Backstage (SQLite)
 
-on:
-  push:
-    branches: ["main"]
-  workflow_dispatch:
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
 
-    steps:
+    
       # ------------------------------
-      # Checkout Source Code
-      # ------------------------------
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      # ------------------------------
-      # Setup Node.js LTS
-      # ------------------------------
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/iron'
-
-      # ------------------------------
-      # Enable Yarn 4
-      # ------------------------------
-      - name: Enable Yarn 4
-        run: |
-          corepack enable
-          corepack prepare yarn@4.4.1 --activate
-          yarn -v
-
-      # ------------------------------
-      # Install Backstage dependencies
-      # ------------------------------
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      # ------------------------------
-      # Build Backstage backend
-      # ------------------------------
-      - name: Build Backstage backend
-        run: yarn build:backend
-
+     
       # ------------------------------
       # Patch SQLite production config
       # ------------------------------
