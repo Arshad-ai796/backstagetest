@@ -66,11 +66,13 @@ jobs:
 
       # -------------------------
       # Verify Backstage App
-      # -------------------------
-      - name: Verify Backstage
+      - name: Verify Backstage App
         run: |
           cd "${RUNNER_TEMP}/my-backstage-app/my-backstage-app"
-          yarn backstage-cli versions
+          yarn backstage-cli --version
+          yarn list "@backstage/*" --depth=0
+     
+
       
       
       
@@ -99,15 +101,7 @@ jobs:
       
       
       
-      
-  # -------------------------
-      # OPTIONAL: VERIFY APP
-      # -------------------------
-      - name: Verify Backstage packages
-        run: |
-          cd /tmp/my-backstage-app
-          yarn backstage-cli versions
-      
+
       
       
       
