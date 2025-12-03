@@ -1,88 +1,52 @@
-name: Setup Full Environment
+name: Build Standalone Backstage (SQLite)
 
 on:
   push:
+    branches: ["main"]
+  workflow_dispatch:
 
 jobs:
-  setup-environment:
+  build:
     runs-on: ubuntu-latest
-    
+
     steps:
-      # -------------------------
-      # CHECKOUT
-      # -------------------------
+      # ------------------------------
+      # Checkout Source Code
+      # ------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -------------------------
-      # SETUP NODE
-      # -------------------------
+      # ------------------------------
+      # Setup Node.js
+      # ------------------------------
       - name: Setup Node.js LTS
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/iron'
 
-      # -------------------------
-      # ENABLE YARN 4.4.1
-      # -------------------------
-      - name: Enable Yarn 4.4.1
+      # ------------------------------
+      # Enable Yarn 4.4.1
+      # ------------------------------
+      - name: Enable Yarn
         run: |
           corepack enable
           corepack prepare yarn@4.4.1 --activate
           yarn -v
-      # -------------------------
-      # VERIFY DOCKER
-      # -------------------------
-      - name: Verify Docker
-        run: |
-          docker --version
-          docker compose version || true
-      # -------------------------
-      # CREATE BACKSTAGE APP
-      # -------------------------
-      - name: Create Backstage App
-        env:
-          YARN_ENABLE_IMMUTABLE_INSTALLS: false
-        run: |
-          cd /tmp
-          echo "my-backstage-app" | npx @backstage/create-app@latest
-      # -------------------------
-      # COPY BACKSTAGE APP → REPO
-      # -------------------------
-      - name: Copy Backstage App Into Repo
-        run: |
-          rsync -av /tmp/my-backstage-app/ $GITHUB_WORKSPACE/ --exclude=.git
-      # -------------------------
-      # INSTALL DEPENDENCIES
-      # -------------------------
-      
-      - name: Install Backstage Dependencies
-        run: yarn install --frozen-lockfile
- 
-      # -------------------------
-     
-      
-       
-      # -------------------------
-      # TYPE CHECK
-      - name: Type Check
-        run: yarn tsc
 
-      # -------------------------
-      # BUILD BACKEND
-      - name: Build Backstage Backend
+      # ------------------------------
+      # Install Backstage dependencies
+      # ------------------------------
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # ------------------------------
+      # Build backend
+      # ------------------------------
+      - name: Build Backstage backend
         run: yarn build:backend
 
-      # -------------------------
-      # name: Build Standalone Backstage (SQLite)
-
-
-
-    
       # ------------------------------
-     
-      # ------------------------------
-      # Patch SQLite production config
+      # Create SQLite production config
       # ------------------------------
       - name: Create app-config.production.yaml
         run: |
@@ -101,11 +65,24 @@ jobs:
         run: |
           DOCKERFILE="packages/backend/Dockerfile"
 
+          # Install SQLite if not already
           grep -q "sqlite" "$DOCKERFILE" || \
           sed -i '1a RUN apk add --no-cache sqlite sqlite-libs' "$DOCKERFILE"
 
+          # Create data folder if not already
           grep -q "/app/data" "$DOCKERFILE" || \
           sed -i '1a RUN mkdir -p /app/data' "$DOCKERFILE"
+
+          # Copy entrypoint script
+          echo '#!/bin/sh' > packages/backend/docker-entrypoint.sh
+          echo 'mkdir -p /app/data' >> packages/backend/docker-entrypoint.sh
+          echo 'yarn workspace backend migrate' >> packages/backend/docker-entrypoint.sh
+          echo 'exec node packages/backend --config app-config.production.yaml' >> packages/backend/docker-entrypoint.sh
+          chmod +x packages/backend/docker-entrypoint.sh
+
+          # Set ENTRYPOINT in Dockerfile if not set
+          grep -q "ENTRYPOINT" "$DOCKERFILE" || \
+          echo 'ENTRYPOINT ["/app/packages/backend/docker-entrypoint.sh"]' >> "$DOCKERFILE"
 
       # ------------------------------
       # Setup Docker Buildx
@@ -138,164 +115,3 @@ jobs:
         with:
           name: backstage-docker-image
           path: backstage-image.tar
-
-      
-      
-        
-       
-      
-                                        
-      
-        
-      
-           
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      # -------------------------
-      # SET UP DOCKER BUILDX
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2
-
-      # -------------------------
-      # BUILD DOCKER IMAGE WITH SQLITE
-      - name: Build Backstage Docker Image 
-        run: |
-          docker buildx build .            -f packages/backend/Dockerfile             --tag myorg/backstage-app:latest             --load
-
-      
-      
-      
-      
-      
-       
-      
-      
-      
-       
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-       
-       
-       
-      
-      
-      
-
-
-
-
-
-
-
-
-      
- # SAVE IMAGE AS TAR
-      # -------------------------
-      - name: Save Docker Image to Tar
-        run: |
-          docker save myorg/backstage-app:latest -o backstage-image.tar
-
-      # -------------------------
-      # UPLOAD IMAGE AS ARTIFACT
-      # -------------------------
-      - name: Upload Docker Image Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: backstage-docker-image
-          path: backstage-image.tar
-
-      
-      
-      
-      
-      
-      
-      
-      # -------------------------
-      # RUN CONTAINER
-      # -------------------------
-      - name: Run Backstage Container
-        run: |
-          docker rm -f backstage || true
-          docker run -d --name backstage-app -p 7001:7001 myorg/backstage-app:latest
-          docker ps -a
-
-     
-          # ---------------------------------------------------------
-            # ---------------------------------------------------------
-      # JFROG ARTIFACTORY LOGIN  # this stage
-      # ---------------------------------------------------------
-      # - name: Login to JFrog Artifactory
-      #   env:
-      #     ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
-      #     ARTIFACTORY_API_KEY: ${{ secrets.ARTIFACTORY_API_KEY }}
-      #   run: |
-      #     echo "$ARTIFACTORY_API_KEY" | docker login global-artifacts.se.com -u "$ARTIFACTORY_USER" --password-stdin
-
-
-      # ---------------------------------------------------------
-      # TAG IMAGE WITH AUTO-INCREMENT VERSION  # this stage
-      # ---------------------------------------------------------
-      # - name: Tag Docker Image for JFrog
-      #   env:
-      #     VERSION: v${{ github.run_number }}
-      #   run: |
-      #     echo "Tagging image as version: $VERSION"
-          
-      #     # Tag versioned image
-      #     docker tag myorg/backstage:latest \
-      #       global-artifacts.se.com/backstage-docker-prod-fed/myorg/backstage:$VERSION
-          
-      #     # Tag latest
-      #     docker tag myorg/backstage:latest \
-      #       global-artifacts.se.com/backstage-docker-prod-fed/myorg/backstage:latest
-
-
-      # ---------------------------------------------------------
-      # PUSH IMAGE TO JFROG  # this stage
-      # ---------------------------------------------------------
-      # - name: Push Docker Image to JFrog
-      #   env:
-      #     VERSION: v${{ github.run_number }}
-      #   run: |
-      #     docker push global-artifacts.se.com/backstage-docker-prod-fed/myorg/backstage:$VERSION
-      #     docker push global-artifacts.se.com/backstage-docker-prod-fed/myorg/backstage:latest
-
-
-      # ---------------------------------------------------------
-      # TRIGGER XRAY SCAN  # this stage
-      # ---------------------------------------------------------
-      # - name: Trigger XRay Scan
-      #   env:
-      #     ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
-      #     ARTIFACTORY_API_KEY: ${{ secrets.ARTIFACTORY_API_KEY }}
-      #     VERSION: v${{ github.run_number }}
-      #   run: |
-      #     echo "Triggering XRay scan for version $VERSION"
-          
-      #     curl -u $ARTIFACTORY_USER:$ARTIFACTORY_API_KEY \
-      #     -X POST "https://global-artifacts.se.com/artifactory/api/xray/scanArtifact" \
-      #     -H "Content-Type: application/json" \
-      #     -d "{
-      #           \"repoKey\": \"backstage-docker-prod-fed\",
-      #           \"path\": \"myorg/backstage:$VERSION\"
-      #         }"
