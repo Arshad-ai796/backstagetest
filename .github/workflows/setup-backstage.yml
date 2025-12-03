@@ -43,18 +43,34 @@ jobs:
           docker compose version || true
       # -------------------------
       # CREATE BACKSTAGE APP
-      - name: Install latest Backstage CLI locally
-        run: |
-          mkdir -p /tmp/backstage-cli
-          cd /tmp/backstage-cli
-          npm init -y
-          npm install @backstage/create-app@latest
-
       - name: Scaffold Backstage App
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
-          cd /tmp
-          ./backstage-cli/node_modules/.bin/create-app my-backstage-app --skip-install
+          # Use temporary directory to avoid permission issues
+          APP_DIR="${RUNNER_TEMP}/my-backstage-app"
+          mkdir -p "$APP_DIR"
+          cd "$APP_DIR"
 
+          # Download and run latest Backstage CLI directly using npx
+          # --ignore-existing ensures latest version is fetched every time
+          echo "my-backstage-app" | npx --yes --ignore-existing @backstage/create-app@latest
+
+          cd my-backstage-app
+
+          # Upgrade all Backstage packages to latest 1.x
+          yarn up "@backstage/*"
+
+          # Install dependencies
+          yarn install
+
+      # -------------------------
+      # Verify Backstage App
+      # -------------------------
+      - name: Verify Backstage
+        run: |
+          cd "${RUNNER_TEMP}/my-backstage-app/my-backstage-app"
+          yarn backstage-cli versions
       
       
       
