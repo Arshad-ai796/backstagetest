@@ -49,7 +49,9 @@ jobs:
       - name: Install latest Backstage create-app globally
         run: |
           npm install -g @backstage/create-app@latest
-          echo "PATH=$PATH:$(npm bin -g)" >> $GITHUB_ENV
+          # Capture npm global bin path
+          NPM_GLOBAL_BIN=$(npm bin -g)
+          echo "PATH=$PATH:$NPM_GLOBAL_BIN" >> $GITHUB_ENV
 
       # -------------------------
       # CHECK CREATE-APP VERSION
