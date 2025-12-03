@@ -52,7 +52,7 @@ jobs:
 
       - name: Verify Backstage CLI availability
         run: |
-        echo "PATH: $PATH"
+          echo "PATH: $PATH"
           which create-app || ( echo "create-app not found"; exit 1 )
           create-app --version
 
