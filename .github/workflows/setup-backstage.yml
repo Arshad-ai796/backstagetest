@@ -135,7 +135,7 @@ jobs:
       # BUILD DOCKER IMAGE WITH SQLITE
       - name: Build Backstage Docker Image 
         run: |
-          docker buildx build .             -f packages/backend/Dockerfile             --tag myorg/backstage-app:latest             --load
+          docker buildx build .            -f packages/backend/Dockerfile             --tag myorg/backstage-app:latest             --load
 
       
       
