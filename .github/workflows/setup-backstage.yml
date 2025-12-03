@@ -70,8 +70,13 @@ jobs:
         run: |
           cd "${RUNNER_TEMP}/my-backstage-app/my-backstage-app"
           npx backstage-cli --version
-          jq -r '.dependencies | to_entries[] | select(.key|startswith("@backstage/")) | "\(.key)@\(.value)"' package.json
-    
+          jq -r '
+          .dependencies, .devDependencies
+          | select(. != null)
+          | to_entries[]
+          | select(.key|startswith("@backstage/"))
+          | "\(.key)@\(.value)"
+          ' package.json || echo "No @backstage packages found in package.json"
      
 
       
