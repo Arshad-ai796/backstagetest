@@ -59,28 +59,27 @@ jobs:
           EOF
 
       # ------------------------------
-      # Patch Dockerfile to install SQLite & create folder
+      # Patch Dockerfile for SQLite + entrypoint
       # ------------------------------
       - name: Patch Dockerfile for SQLite
         run: |
           DOCKERFILE="packages/backend/Dockerfile"
 
-          # Install SQLite if not already
-          grep -q "sqlite" "$DOCKERFILE" || \
-          sed -i '1a RUN apk add --no-cache sqlite sqlite-libs' "$DOCKERFILE"
+          # Add SQLite installation and data folder after FROM
+          sed -i '/FROM node:18-alpine/a RUN apk add --no-cache sqlite sqlite-libs' "$DOCKERFILE"
+          sed -i '/FROM node:18-alpine/a RUN mkdir -p /app/data' "$DOCKERFILE"
 
-          # Create data folder if not already
-          grep -q "/app/data" "$DOCKERFILE" || \
-          sed -i '1a RUN mkdir -p /app/data' "$DOCKERFILE"
+          # Create entrypoint script to run migrations & start backend
+          ENTRYPOINT_SCRIPT="packages/backend/docker-entrypoint.sh"
+          cat > "$ENTRYPOINT_SCRIPT" << 'EOF'
+          #!/bin/sh
+          mkdir -p /app/data
+          yarn workspace backend migrate
+          exec node packages/backend --config app-config.production.yaml
+          EOF
+          chmod +x "$ENTRYPOINT_SCRIPT"
 
-          # Copy entrypoint script
-          echo '#!/bin/sh' > packages/backend/docker-entrypoint.sh
-          echo 'mkdir -p /app/data' >> packages/backend/docker-entrypoint.sh
-          echo 'yarn workspace backend migrate' >> packages/backend/docker-entrypoint.sh
-          echo 'exec node packages/backend --config app-config.production.yaml' >> packages/backend/docker-entrypoint.sh
-          chmod +x packages/backend/docker-entrypoint.sh
-
-          # Set ENTRYPOINT in Dockerfile if not set
+          # Add ENTRYPOINT to Dockerfile if not already present
           grep -q "ENTRYPOINT" "$DOCKERFILE" || \
           echo 'ENTRYPOINT ["/app/packages/backend/docker-entrypoint.sh"]' >> "$DOCKERFILE"
 
