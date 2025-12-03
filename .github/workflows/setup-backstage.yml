@@ -204,7 +204,7 @@ jobs:
       - name: Run Backstage Container
         run: |
           docker rm -f backstage || true
-          docker run -d --name backstage-app -p 7007:7007 myorg/backstage-app:latest
+          docker run -d --name backstage-app -p 7001:7001 myorg/backstage-app:latest
           docker ps -a
 
      
