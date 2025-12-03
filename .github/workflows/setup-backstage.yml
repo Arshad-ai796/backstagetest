@@ -1,116 +1,189 @@
-name: Build Standalone Backstage (SQLite)
+name: Setup Full Environment
+
 
 on:
   push:
-    branches: ["main"]
-  workflow_dispatch:
+
 
 jobs:
-  build:
+  setup-environment:
     runs-on: ubuntu-latest
-
+    
     steps:
-      # ------------------------------
-      # Checkout Source Code
-      # ------------------------------
+      # -------------------------
+      # CHECKOUT
+      # -------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ------------------------------
-      # Setup Node.js
-      # ------------------------------
+
+      # -------------------------
+      # SETUP NODE
+      # -------------------------
       - name: Setup Node.js LTS
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/iron'
 
-      # ------------------------------
-      # Enable Yarn 4.4.1
-      # ------------------------------
-      - name: Enable Yarn
+
+      # -------------------------
+      # ENABLE YARN 4.4.1
+      # -------------------------
+      - name: Enable Yarn 4.4.1
         run: |
           corepack enable
           corepack prepare yarn@4.4.1 --activate
           yarn -v
-
-      # ------------------------------
-      # Install Backstage dependencies
-      # ------------------------------
-      - name: Install dependencies
+      # -------------------------
+      # VERIFY DOCKER
+      # -------------------------
+      - name: Verify Docker
+        run: |
+          docker --version
+          docker compose version || true
+      # -------------------------
+      # CREATE BACKSTAGE APP
+      # -------------------------
+      - name: Create Backstage App
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
+        run: |
+          cd /tmp
+          echo "my-backstage-app" | npx @backstage/create-app@latest
+      # -------------------------
+      # COPY BACKSTAGE APP → REPO
+      # -------------------------
+      - name: Copy Backstage App Into Repo
+        run: |
+          rsync -av /tmp/my-backstage-app/ $GITHUB_WORKSPACE/ --exclude=.git
+      # -------------------------
+      # INSTALL DEPENDENCIES
+      # -------------------------
+      
+      - name: Install Backstage Dependencies
         run: yarn install --frozen-lockfile
+ 
+      # -------------------------
+     
+      
+       
+      # -------------------------
+      # TYPE CHECK
+      - name: Type Check
+        run: yarn tsc
 
-      # ------------------------------
-      # Build backend
-      # ------------------------------
-      - name: Build Backstage backend
+
+      # -------------------------
+      # BUILD BACKEND
+      - name: Build Backstage Backend
         run: yarn build:backend
 
-      # ------------------------------
-      # Create SQLite production config
-      # ------------------------------
-      - name: Create app-config.production.yaml
-        run: |
-          cat > app-config.production.yaml << 'EOF'
-          backend:
-            database:
-              client: sqlite3
-              connection:
-                filename: /app/data/backstage.db
-          EOF
 
-      # ------------------------------
-      # Patch Dockerfile for SQLite + entrypoint
-      # ------------------------------
-      - name: Patch Dockerfile for SQLite
-        run: |
-          DOCKERFILE="packages/backend/Dockerfile"
-
-          # Add SQLite installation and data folder after FROM
-          sed -i '/FROM node:18-alpine/a RUN apk add --no-cache sqlite sqlite-libs' "$DOCKERFILE"
-          sed -i '/FROM node:18-alpine/a RUN mkdir -p /app/data' "$DOCKERFILE"
-
-          # Create entrypoint script to run migrations & start backend
-          ENTRYPOINT_SCRIPT="packages/backend/docker-entrypoint.sh"
-          cat > "$ENTRYPOINT_SCRIPT" << 'EOF'
-          #!/bin/sh
-          mkdir -p /app/data
-          yarn workspace backend migrate
-          exec node packages/backend --config app-config.production.yaml
-          EOF
-          chmod +x "$ENTRYPOINT_SCRIPT"
-
-          # Add ENTRYPOINT to Dockerfile if not already present
-          grep -q "ENTRYPOINT" "$DOCKERFILE" || \
-          echo 'ENTRYPOINT ["/app/packages/backend/docker-entrypoint.sh"]' >> "$DOCKERFILE"
-
-      # ------------------------------
-      # Setup Docker Buildx
-      # ------------------------------
+       
+      
+                                        
+      
+        
+      
+           
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      # -------------------------
+      # SET UP DOCKER BUILDX
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2
 
-      # ------------------------------
-      # Build Docker image
-      # ------------------------------
-      - name: Build Backstage Docker image
+
+      # -------------------------
+      # BUILD DOCKER IMAGE 
+      - name: Build Backstage Docker Image 
         run: |
-          docker buildx build . \
-            -f packages/backend/Dockerfile \
-            --tag myorg/backstage-app:latest \
-            --load
+          docker buildx build .            -f packages/backend/Dockerfile             --tag myorg/backstage-app:latest             --load
 
-      # ------------------------------
-      # Save Docker image as TAR
-      # ------------------------------
-      - name: Save Docker image to tar
+      
+      
+      
+      
+      
+       
+      
+      
+      
+       
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+       
+       
+       
+      
+      
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      
+ # SAVE IMAGE AS TAR
+      # -------------------------
+      - name: Save Docker Image to Tar
         run: |
           docker save myorg/backstage-app:latest -o backstage-image.tar
 
-      # ------------------------------
-      # Upload Docker image artifact
-      # ------------------------------
-      - name: Upload Docker image artifact
+      # -------------------------
+      # UPLOAD IMAGE AS ARTIFACT
+      # -------------------------
+      - name: Upload Docker Image Artifact
         uses: actions/upload-artifact@v4
         with:
           name: backstage-docker-image
           path: backstage-image.tar
+
+
+      
+      
+      
+      
+      
+      
+      
+      # -------------------------
+      # RUN CONTAINER
+      # -------------------------
+      - name: Run Backstage Container
+        run: |
+          docker rm -f backstage || true
+          docker run -d --name backstage-app -p 7001:7001 myorg/backstage-app:latest
+          docker ps -a
+
+     
