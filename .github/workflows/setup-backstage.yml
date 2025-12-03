@@ -104,7 +104,13 @@ jobs:
            POSTGRES_PASSWORD: backstage
            POSTGRES_DB: backstage
         run: |
-           timeout 40s yarn workspace backend start
+            yarn workspace backend start &
+            BACKEND_PID=$!
+            echo "Waiting for migrations to complete..."
+            sleep 40
+            echo "Stopping backend process..."
+            kill $BACKEND_PID
+
 
                                         
 
