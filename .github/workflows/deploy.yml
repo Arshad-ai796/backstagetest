@@ -1,0 +1,29 @@
+name: Deploy to Kubernetes
+
+on:
+  workflow_run:
+    workflows: [""]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+
+      - name: Login to JFrog registry
+        run: |
+          echo "${{ secrets.JFROG_PASSWORD }}" | \
+          docker login registry.jfrog.io -u "${{ secrets.JFROG_USERNAME }}" --password-stdin
+
+      - name: Deploy
+        run: |
+          kubectl apply -f kubernetes/
