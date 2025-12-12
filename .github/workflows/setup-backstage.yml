@@ -1,4 +1,4 @@
-me: Backstage CI/CD
+name: Backstage CI/CD
 
 on:
   push:
