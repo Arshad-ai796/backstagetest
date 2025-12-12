@@ -1,0 +1,56 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: backstage
+  description: An example of a Backstage application.
+  # Example for optional annotations
+  # annotations:
+  #   github.com/project-slug: backstage/backstage
+  #   backstage.io/techdocs-ref: dir:.
+spec:
+  type: website
+  owner: john@example.com
+  lifecycle: experiment
+
+
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: arshad-ai796
+spec:
+  profile:
+    displayName: Arshad Ayub Mulla
+    email: arshad.arshu514@gmail.com
+  memberOf: []
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    

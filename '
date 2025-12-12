@@ -1,0 +1,11 @@
+auth:
+  environment: development
+  providers:
+    guest: {}
+    github:
+      development:
+        clientId: Ov23liQFcyHmHBOWbZpz
+        clientSecret: 60ae9bff5a98f69f174774d283a20de29bee1dec
+        signIn:
+          resolvers:
+            - resolver: usernameMatchingUserEntityName
