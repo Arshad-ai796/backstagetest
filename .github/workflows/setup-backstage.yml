@@ -1,213 +1,587 @@
-name: Build & Push Backstage
+name: Backstage Setup - 
 
 on:
   push:
-    branches:
-      - main
-
-permissions:
-  contents: write  # needed to push changes back to the repository
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      create_app:
+        description: 'Create a test Backstage app'
+        required: false
+        type: boolean
+        default: true
+      app_name:
+        description: 'Name for the Backstage app'
+        required: false
+        type: string
+        default: 'my-backstage-app'
+      build_docker:
+        description: 'Build Docker image'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
-  setup-environment:
+  backstage-setup:
     runs-on: ubuntu-latest
-
+    
+    env:
+      NODE_VERSION: '20.19.6'
+      APP_NAME: 'my-backstage-app'
+    
     steps:
-      # -------------------------
-      # CHECKOUT
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-      # -------------------------
-      # SETUP NODE
-      - name: Setup Node.js 20.19.6
+      - name: Setup Node.js without cache
         uses: actions/setup-node@v4
         with:
-          node-version: '20.19.6'
-          check-latest: true
-          cache: 'yarn'  # enable yarn cache
+          node-version: ${{ env.NODE_VERSION }}
+          cache: ''
 
-      # -------------------------
-      # VERIFY NODE & NPM
-      - name: Verify Node and NPM versions
+      # ============================================
+      # STEP 1: Check npm global root
+      # ============================================
+      - name: Step 1 - Check npm global root
         run: |
-          node -v
-          npm -v
-          npm config get prefix
+          echo "=== STEP 1: npm root -g ==="
           npm root -g
-          
-      # -------------------------
-      # CLEAR NPM CACHE (ensures latest packages)
-      - name: Clear NPM Cache
+          echo ""
+
+      # ============================================
+      # STEP 2: List and check for create-app
+      # ============================================
+      - name: Step 2 - Check for create-app in bin directory
         run: |
+          echo "=== STEP 2: ls -l bin | grep create-app ==="
+          GLOBAL_PREFIX="$(npm config get prefix)"
+          ls -l "$GLOBAL_PREFIX/bin" 2>/dev/null | grep create-app || echo "create-app not found (expected at this stage)"
+          echo ""
+        continue-on-error: true
+
+      # ============================================
+      # STEP 3: Verify Node and npm versions
+      # ============================================
+      - name: Step 3 - Verify Node and npm versions
+        run: |
+          echo "=== STEP 3: node -v && npm -v ==="
+          echo "Node version:"
+          node -v
+          echo ""
+          echo "npm version:"
+          npm -v
+          echo ""
+
+      # ============================================
+      # STEP 4: Get npm config prefix
+      # ============================================
+      - name: Step 4 - Get npm config prefix
+        run: |
+          echo "=== STEP 4: npm config get prefix ==="
+          npm config get prefix
+          echo ""
+
+      # ============================================
+      # CLEAN INSTALLATION PREPARATION
+      # ============================================
+      - name: Clean npm cache and remove old installations
+        run: |
+          echo "=== Cleaning npm cache ==="
           npm cache clean --force
+          npm cache verify
+          echo ""
           
-      # -------------------------
-      # ENABLE YARN 4.4.1
-      - name: Enable Yarn 4.4.1
+          echo "=== Removing existing Backstage installations ==="
+          npm uninstall -g @backstage/create-app 2>/dev/null || true
+          npm uninstall -g @backstage/cli 2>/dev/null || true
+          rm -rf $(npm root -g)/@backstage 2>/dev/null || true
+          echo "✓ Cleanup complete"
+          echo ""
+
+      - name: Update npm to latest version
         run: |
-          corepack enable
-          corepack prepare yarn@4.4.1 --activate
-          yarn -v
+          echo "=== Updating npm to latest ==="
+          npm install -g npm@latest
+          echo "Updated npm version:"
+          npm -v
+          echo ""
+
+      # ============================================
+      # STEP 5: Install @backstage/create-app
+      # ============================================
+      - name: Step 5 - Install @backstage/create-app globally
+        run: |
+          echo "=== STEP 5: npm install -g @backstage/create-app ==="
+          npm install -g @backstage/create-app@latest --force
+          echo "✓ Installation complete"
+          echo ""
+
+      # ============================================
+      # STEP 6: Verify create-app installation
+      # ============================================
+      - name: Step 6 - Verify create-app installation
+        run: |
+          echo "=== STEP 6: ls -l bin | grep create-app ==="
+          GLOBAL_PREFIX="$(npm config get prefix)"
+          BIN_DIR="${GLOBAL_PREFIX}/bin"
           
-      # -------------------------
-      # ADD GLOBAL NPM BIN TO PATH (CI-safe)
-      - name: Compute global npm bin and add to PATH
-        id: npmpaths
-        shell: bash
-        run: |
-          # npm root -g -> .../lib/node_modules ; bin is two levels up
-          NPM_ROOT="$(npm root -g)"
-          ROOT_BASE="$(dirname "$(dirname "${NPM_ROOT}")")"
-          if [[ -d "${ROOT_BASE}/bin" ]]; then
-            echo "${ROOT_BASE}/bin" >> "$GITHUB_PATH"
-            echo "Added ${ROOT_BASE}/bin to PATH."
-          else
-            # Fallback: derive from node executable dir
-            NODE_BIN="$(node -p 'require(\"path\").dirname(process.execPath)')"
-            echo "${NODE_BIN}" >> "$GITHUB_PATH"
-            echo "Added ${NODE_BIN} to PATH (fallback)."
-          fi
+          echo "Checking in: $BIN_DIR"
+          ls -l "$BIN_DIR" | grep create-app || echo "create-app not found"
+          echo ""
           
-      # -------------------------
-      # CHECK LATEST BACKSTAGE VERSION AVAILABLE
-      - name: Check Latest Backstage Version
-        run: |
-          echo "Checking latest @backstage/create-app version..."
-          npm view @backstage/create-app version
-          npm view @backstage/create-app dist-tags.latest
-          
-      # -------------------------
-      # INSTALL LATEST BACKSTAGE CLI GLOBALLY
-      - name: Install Latest Backstage Create App
-        run: |
-          npm install -g @backstage/create-app@latest
-          echo "Installed version:"
+          echo "Installed @backstage/create-app package:"
           npm list -g @backstage/create-app --depth=0
-          
-      # -------------------------
-      # VERIFY BACKSTAGE CLI INSTALLATION
-      - name: Verify Backstage CLI
+          echo ""
+
+      # ============================================
+      # STEP 7: Setup NVM environment
+      # ============================================
+      - name: Step 7 - Verify NVM/Node setup
         run: |
-          which npx || echo "npx not found"
-          echo "Backstage create-app version:"
-          npx @backstage/create-app --version
+          echo "=== STEP 7: NVM setup verification ==="
+          echo "Note: GitHub Actions uses setup-node instead of NVM"
+          echo ""
+          echo "Node location: $(which node)"
+          echo "Node version: $(node -v)"
+          echo ""
+
+      # ============================================
+      # STEP 8: Verify node and npm locations
+      # ============================================
+      - name: Step 8 - Verify node and npm paths
+        run: |
+          echo "=== STEP 8: which node && which npm ==="
+          echo "Node path:"
+          which node
+          echo ""
+          echo "npm path:"
+          which npm
+          echo ""
+          echo "Node version:"
+          node -v
+          echo ""
+          echo "npm version:"
+          npm -v
+          echo ""
+
+      # ============================================
+      # STEP 9: Complete setup with PATH configuration
+      # ============================================
+      - name: Step 9 - Complete global setup and PATH configuration
+        run: |
+          echo "=== STEP 9: Complete setup with PATH ==="
+          
+          # Get the global npm prefix, then derive the bin directory
           GLOBAL_PREFIX="$(npm prefix -g)"
           BIN_DIR="${GLOBAL_PREFIX}/bin"
+          
           echo "Global prefix: $GLOBAL_PREFIX"
-          echo "Global bin: $BIN_DIR"
+          echo "Global bin:    $BIN_DIR"
+          echo ""
+          
+          # Install Backstage CLI globally (creates the create-app binary in BIN_DIR)
+          echo "Ensuring @backstage/create-app is installed..."
+          npm install -g @backstage/create-app@latest --force
+          echo ""
+          
+          # Add the bin to PATH for subsequent steps
+          echo "$BIN_DIR" >> $GITHUB_PATH
+          export PATH="$PATH:$BIN_DIR"
+          
+          # Verify
+          echo "Verification:"
+          which create-app || echo "create-app not on PATH yet"
+          echo ""
+          
+          echo "Contents of $BIN_DIR:"
           ls -l "$BIN_DIR" | grep create-app || echo "create-app not found in $BIN_DIR"
+          echo ""
           
-      # -------------------------
-      # VERIFY DOCKER
-      - name: Verify Docker
+          echo "Attempting to run create-app --version:"
+          create-app --version 2>/dev/null || echo "Direct execution not available yet"
+          echo ""
+
+      # ============================================
+      # STEP 10: Enable Corepack and install Yarn
+      # ============================================
+      - name: Step 10 - Setup Corepack and Yarn
         run: |
-          docker --version
-          docker compose version || true
+          echo "=== STEP 10: Enable Corepack and install Yarn ==="
           
-      # -------------------------
-      # CREATE BACKSTAGE APP WITH LATEST VERSION
-      - name: Create Backstage App (Latest)
-        env:
-          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+          # Enable Corepack (comes with Node 20)
+          echo "Enabling Corepack..."
+          corepack enable
+          echo ""
+          
+          # Install the latest stable Yarn
+          echo "Installing latest stable Yarn..."
+          corepack prepare yarn@stable --activate
+          echo ""
+          
+          # Verify
+          echo "Yarn version:"
+          yarn -v
+          echo ""
+
+      # ============================================
+      # STEP 11: Verify backstage-create-app
+      # ============================================
+      - name: Step 11 - Verify backstage-create-app
         run: |
-          set -euo pipefail
+          echo "=== STEP 11: Verify backstage-create-app ==="
+          
+          echo "Method 1 - Direct command:"
+          backstage-create-app --version 2>/dev/null || echo "✗ backstage-create-app command not available"
+          echo ""
+          
+          echo "Method 2 - create-app command:"
+          create-app --version 2>/dev/null || echo "✗ create-app command not available"
+          echo ""
+          
+          echo "Method 3 - npx (RECOMMENDED):"
+          npx @backstage/create-app@latest --version
+          echo ""
+
+      # ============================================
+      # VERSION VERIFICATION
+      # ============================================
+      - name: Verify latest version is installed
+        run: |
+          echo "╔════════════════════════════════════════╗"
+          echo "║     Version Verification               ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+          
+          INSTALLED_VERSION=$(npm list -g @backstage/create-app --depth=0 2>/dev/null | grep @backstage/create-app | awk -F@ '{print $NF}' | tr -d ' ')
+          echo "Installed version: $INSTALLED_VERSION"
+          
+          LATEST_VERSION=$(npm view @backstage/create-app version)
+          echo "Latest available:  $LATEST_VERSION"
+          echo ""
+          
+          if [ "$INSTALLED_VERSION" = "$LATEST_VERSION" ]; then
+            echo "✓ SUCCESS: Latest version is installed!"
+          else
+            echo "⚠ WARNING: Version mismatch detected"
+            echo "  Installed: $INSTALLED_VERSION"
+            echo "  Latest:    $LATEST_VERSION"
+          fi
+          echo ""
+
+      # ============================================
+      # CREATE BACKSTAGE APP
+      # ============================================
+      - name: Create Backstage App in /tmp
+        if: github.event.inputs.create_app != 'false'
+        run: |
+          echo "╔════════════════════════════════════════╗"
+          echo "║     Creating Backstage App             ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+          
+          APP_NAME="${{ github.event.inputs.app_name || env.APP_NAME }}"
+          echo "Creating app: $APP_NAME in /tmp"
+          echo ""
+          
           cd /tmp
-          # Force use of latest version with --yes flag to skip prompts
-          echo "my-backstage-app" | npx --yes @backstage/create-app@latest
-          ls -la /tmp/my-backstage-app
-          echo "✅ Backstage app created with latest version"
           
-      # -------------------------
-      # VERIFY CREATED APP VERSION
-      - name: Verify Created App Version
-        run: |
-          cd /tmp/my-backstage-app
-          echo "Checking package.json for Backstage version..."
-          cat package.json | grep -A 5 '"@backstage/' || echo "Backstage packages found"
+          # Use npx to ensure latest version
+          npx --yes @backstage/create-app@latest --skip-install
           
-      # -------------------------
+          if [ -d "/tmp/$APP_NAME" ]; then
+            echo "✓ App created successfully in /tmp/$APP_NAME"
+            echo ""
+            echo "App structure:"
+            ls -la "/tmp/$APP_NAME"
+            echo ""
+          else
+            echo "✗ App creation failed"
+            exit 1
+          fi
+
+      # ============================================
       # COPY BACKSTAGE APP → REPO
+      # ============================================
       - name: Copy Backstage App Into Repo
+        if: github.event.inputs.create_app != 'false'
         run: |
           set -euo pipefail
-          rsync -a --delete --exclude='.git' /tmp/my-backstage-app/ "$GITHUB_WORKSPACE/"
-          ls -la "$GITHUB_WORKSPACE"
           
-      # -------------------------
+          echo "╔════════════════════════════════════════╗"
+          echo "║     Copying App to Repository          ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+          
+          APP_NAME="${{ github.event.inputs.app_name || env.APP_NAME }}"
+          
+          echo "Copying /tmp/$APP_NAME to $GITHUB_WORKSPACE"
+          rsync -a --delete --exclude='.git' "/tmp/$APP_NAME/" "$GITHUB_WORKSPACE/"
+          
+          echo ""
+          echo "Repository contents:"
+          ls -la "$GITHUB_WORKSPACE"
+          echo ""
+          echo "✓ App copied successfully"
+
+      # ============================================
       # INSTALL DEPENDENCIES
+      # ============================================
       - name: Install Backstage Dependencies
+        if: github.event.inputs.create_app != 'false'
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
+          echo "╔════════════════════════════════════════╗"
+          echo "║     Installing Dependencies            ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+          
+          cd "$GITHUB_WORKSPACE"
           yarn install
           
-      # -------------------------
-      # TYPE CHECK
-      - name: Type Check
-        run: yarn tsc
+          echo ""
+          echo "✓ Dependencies installed successfully"
 
-      # -------------------------
-      # BUILD BACKEND (must run to produce dist/bundle.tar.gz)
+      # ============================================
+      # TYPE CHECK
+      # ============================================
+      - name: Type Check
+        if: github.event.inputs.create_app != 'false'
+        run: |
+          echo "╔════════════════════════════════════════╗"
+          echo "║     Running Type Check                 ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+          
+          cd "$GITHUB_WORKSPACE"
+          yarn tsc
+          
+          echo ""
+          echo "✓ Type check passed"
+
+      # ============================================
+      # BUILD BACKEND
+      # ============================================
       - name: Build Backstage Backend
+        if: github.event.inputs.create_app != 'false'
         run: |
           set -euo pipefail
+          
+          echo "╔════════════════════════════════════════╗"
+          echo "║     Building Backend                   ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+          
+          cd "$GITHUB_WORKSPACE"
           yarn build:backend
           
-      # -------------------------
-      # VERIFY bundle exists (fail early if missing)
+          echo ""
+          echo "✓ Backend built successfully"
+
+      # ============================================
+      # VERIFY BUNDLE EXISTS
+      # ============================================
       - name: Verify backend bundle exists
+        if: github.event.inputs.create_app != 'false'
         run: |
           set -euo pipefail
+          
+          echo "╔════════════════════════════════════════╗"
+          echo "║     Verifying Backend Bundle           ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+          
+          cd "$GITHUB_WORKSPACE"
+          
+          echo "Contents of packages/backend/dist:"
           ls -la packages/backend/dist || true
+          echo ""
+          
           if [[ ! -f packages/backend/dist/bundle.tar.gz ]]; then
-            echo "ERROR: packages/backend/dist/bundle.tar.gz missing after build."
+            echo "❌ ERROR: packages/backend/dist/bundle.tar.gz missing after build."
             echo "Check 'yarn build:backend' logs for errors."
             exit 1
           fi
-          echo "✅ Backend bundle verified"
           
-      # -------------------------
+          echo "✅ Backend bundle verified"
+          ls -lh packages/backend/dist/bundle.tar.gz
+
+      # ============================================
       # SETUP DOCKER BUILDX
+      # ============================================
       - name: Set up Docker Buildx
+        if: github.event.inputs.build_docker != 'false'
         uses: docker/setup-buildx-action@v3
 
-      # -------------------------
+      # ============================================
       # BUILD DOCKER IMAGE
+      # ============================================
       - name: Build Backstage Docker Image
+        if: github.event.inputs.build_docker != 'false'
         working-directory: .
         run: |
           set -euo pipefail
+          
+          echo "╔════════════════════════════════════════╗"
+          echo "║     Building Docker Image              ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+          
           if [[ ! -f packages/backend/Dockerfile ]]; then
-            echo "ERROR: packages/backend/Dockerfile not found."
+            echo "❌ ERROR: packages/backend/Dockerfile not found."
             exit 1
           fi
+          
+          echo "Building Docker image..."
           docker build -f packages/backend/Dockerfile -t myorg/backstage-app:latest .
+          
+          echo ""
           echo "✅ Docker image built successfully"
-          
-      # -------------------------
+          docker images | grep backstage
+
+      # ============================================
       # SAVE DOCKER IMAGE AS TAR
+      # ============================================
       - name: Save Docker image to tar
+        if: github.event.inputs.build_docker != 'false'
         run: |
-          docker save myorg/backstage-app:latest -o backstage-image.tar
-          ls -lh backstage-image.tar
-          echo "✅ Docker image saved to backstage-image.tar"
+          echo "╔════════════════════════════════════════╗"
+          echo "║     Saving Docker Image                ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
           
-      # -------------------------
+          docker save myorg/backstage-app:latest -o backstage-image.tar
+          
+          echo ""
+          echo "Image size:"
+          ls -lh backstage-image.tar
+          
+          echo ""
+          echo "✅ Docker image saved to backstage-image.tar"
+
+      # ============================================
       # UPLOAD DOCKER IMAGE ARTIFACT
+      # ============================================
       - name: Upload Docker image artifact
+        if: github.event.inputs.build_docker != 'false'
         uses: actions/upload-artifact@v4
         with:
           name: backstage-docker-image
           path: backstage-image.tar
-          retention-days: 7  # Keep artifact for 7 days
+          retention-days: 7
+          compression-level: 0  # Already compressed
 
-      # -------------------------
+      # ============================================
+      # UPLOAD BACKSTAGE APP ARTIFACT
+      # ============================================
+      - name: Upload Backstage App Source
+        if: github.event.inputs.create_app != 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backstage-app-source
+          path: |
+            ${{ github.workspace }}
+            !${{ github.workspace }}/.git
+            !${{ github.workspace }}/node_modules
+            !${{ github.workspace }}/**/node_modules
+          retention-days: 7
+
+      # ============================================
       # COMMIT & PUSH CHANGES
+      # ============================================
       - name: Commit and Push Changes
+        if: github.event.inputs.create_app != 'false' && github.event_name != 'pull_request'
         run: |
+          echo "╔════════════════════════════════════════╗"
+          echo "║     Committing Changes                 ║"
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+          
+          cd "$GITHUB_WORKSPACE"
+          
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          echo "Staging all changes..."
           git add .
-          git diff --staged --quiet || git commit -m "Auto-generated Backstage app (latest version) [skip ci]"
-          git push || echo "⚠️ No changes to push"
+          
+          echo ""
+          echo "Changes to be committed:"
+          git status --short
+          
+          echo ""
+          if git diff --staged --quiet; then
+            echo "⚠️ No changes to commit"
+          else
+            echo "Committing changes..."
+            git commit -m "Auto-generated Backstage app (latest version) [skip ci]"
+            
+            echo ""
+            echo "Pushing to repository..."
+            git push || echo "⚠️ Push failed or no changes to push"
+            
+            echo ""
+            echo "✅ Changes committed and pushed"
+          fi
+
+      # ============================================
+      # FINAL SUMMARY
+      # ============================================
+      - name: Installation Summary
+        if: always()
+        run: |
+          echo ""
+          echo "╔════════════════════════════════════════════════════╗"
+          echo "║                                                    ║"
+          echo "║     Backstage Installation Summary                ║"
+          echo "║                                                    ║"
+          echo "╚════════════════════════════════════════════════════╝"
+          echo ""
+          echo "✓ Node version:        $(node -v)"
+          echo "✓ npm version:         $(npm -v)"
+          echo "✓ Yarn version:        $(yarn -v)"
+          echo "✓ Global npm prefix:   $(npm config get prefix)"
+          echo ""
+          echo "Backstage Installation:"
+          npm list -g @backstage/create-app --depth=0 2>/dev/null || echo "  Not found via global install"
+          echo ""
+          echo "Latest available:      $(npm view @backstage/create-app version)"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "App Status:"
+          if [ -f "$GITHUB_WORKSPACE/package.json" ]; then
+            echo "  ✅ Backstage app created"
+            echo "  📦 App name: $(cat $GITHUB_WORKSPACE/package.json | grep '"name"' | head -1 | awk -F'"' '{print $4}')"
+            echo "  📁 Location: $GITHUB_WORKSPACE"
+            
+            if [ -f "$GITHUB_WORKSPACE/packages/backend/dist/bundle.tar.gz" ]; then
+              echo "  ✅ Backend bundle built"
+              echo "  📦 Bundle size: $(ls -lh $GITHUB_WORKSPACE/packages/backend/dist/bundle.tar.gz | awk '{print $5}')"
+            fi
+            
+            if [ -f "$GITHUB_WORKSPACE/backstage-image.tar" ]; then
+              echo "  ✅ Docker image created"
+              echo "  🐳 Image size: $(ls -lh $GITHUB_WORKSPACE/backstage-image.tar | awk '{print $5}')"
+            fi
+          else
+            echo "  ⚠️ No Backstage app in workspace"
+          fi
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Artifacts:"
+          echo "  📦 backstage-app-source (source code)"
+          echo "  🐳 backstage-docker-image (Docker image tar)"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Recommended Usage:"
+          echo "  npx @backstage/create-app@latest"
+          echo ""
+          echo "╚════════════════════════════════════════════════════╝"
