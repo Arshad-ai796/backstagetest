@@ -1,63 +1,213 @@
-name: Backstage CI/CD
+name: Build & Push Backstage
 
 on:
   push:
     branches:
       - main
 
+permissions:
+  contents: write  # needed to push changes back to the repository
+
 jobs:
-  backstage-ci:
+  setup-environment:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      # -------------------------
+      # CHECKOUT
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      # -------------------------
+      # SETUP NODE
+      - name: Setup Node.js 20.19.6
         uses: actions/setup-node@v4
         with:
-          node-version: 20.19.6
-          cache: yarn
+          node-version: '20.19.6'
+          check-latest: true
+          cache: 'yarn'  # enable yarn cache
 
-      - name: Enable Corepack and Yarn
+      # -------------------------
+      # VERIFY NODE & NPM
+      - name: Verify Node and NPM versions
+        run: |
+          node -v
+          npm -v
+          npm config get prefix
+          npm root -g
+          
+      # -------------------------
+      # CLEAR NPM CACHE (ensures latest packages)
+      - name: Clear NPM Cache
+        run: |
+          npm cache clean --force
+          
+      # -------------------------
+      # ENABLE YARN 4.4.1
+      - name: Enable Yarn 4.4.1
         run: |
           corepack enable
-          corepack prepare yarn@stable --activate
+          corepack prepare yarn@4.4.1 --activate
           yarn -v
-
-      - name: Clone Backstage App
+          
+      # -------------------------
+      # ADD GLOBAL NPM BIN TO PATH (CI-safe)
+      - name: Compute global npm bin and add to PATH
+        id: npmpaths
+        shell: bash
         run: |
-          rm -rf backstage-app || true
-          git clone --depth=1 https://github.com/Arshad-ai796/backstagetest.git backstage-app
-          ls -l backstage-app
-
-      - name: Copy App Into Workspace
+          # npm root -g -> .../lib/node_modules ; bin is two levels up
+          NPM_ROOT="$(npm root -g)"
+          ROOT_BASE="$(dirname "$(dirname "${NPM_ROOT}")")"
+          if [[ -d "${ROOT_BASE}/bin" ]]; then
+            echo "${ROOT_BASE}/bin" >> "$GITHUB_PATH"
+            echo "Added ${ROOT_BASE}/bin to PATH."
+          else
+            # Fallback: derive from node executable dir
+            NODE_BIN="$(node -p 'require(\"path\").dirname(process.execPath)')"
+            echo "${NODE_BIN}" >> "$GITHUB_PATH"
+            echo "Added ${NODE_BIN} to PATH (fallback)."
+          fi
+          
+      # -------------------------
+      # CHECK LATEST BACKSTAGE VERSION AVAILABLE
+      - name: Check Latest Backstage Version
         run: |
-          rsync -av backstage-app/ $GITHUB_WORKSPACE/ --exclude=.git
-
-      - name: Install Dependencies
+          echo "Checking latest @backstage/create-app version..."
+          npm view @backstage/create-app version
+          npm view @backstage/create-app dist-tags.latest
+          
+      # -------------------------
+      # INSTALL LATEST BACKSTAGE CLI GLOBALLY
+      - name: Install Latest Backstage Create App
+        run: |
+          npm install -g @backstage/create-app@latest
+          echo "Installed version:"
+          npm list -g @backstage/create-app --depth=0
+          
+      # -------------------------
+      # VERIFY BACKSTAGE CLI INSTALLATION
+      - name: Verify Backstage CLI
+        run: |
+          which npx || echo "npx not found"
+          echo "Backstage create-app version:"
+          npx @backstage/create-app --version
+          GLOBAL_PREFIX="$(npm prefix -g)"
+          BIN_DIR="${GLOBAL_PREFIX}/bin"
+          echo "Global prefix: $GLOBAL_PREFIX"
+          echo "Global bin: $BIN_DIR"
+          ls -l "$BIN_DIR" | grep create-app || echo "create-app not found in $BIN_DIR"
+          
+      # -------------------------
+      # VERIFY DOCKER
+      - name: Verify Docker
+        run: |
+          docker --version
+          docker compose version || true
+          
+      # -------------------------
+      # CREATE BACKSTAGE APP WITH LATEST VERSION
+      - name: Create Backstage App (Latest)
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+        run: |
+          set -euo pipefail
+          cd /tmp
+          # Force use of latest version with --yes flag to skip prompts
+          echo "my-backstage-app" | npx --yes @backstage/create-app@latest
+          ls -la /tmp/my-backstage-app
+          echo "✅ Backstage app created with latest version"
+          
+      # -------------------------
+      # VERIFY CREATED APP VERSION
+      - name: Verify Created App Version
+        run: |
+          cd /tmp/my-backstage-app
+          echo "Checking package.json for Backstage version..."
+          cat package.json | grep -A 5 '"@backstage/' || echo "Backstage packages found"
+          
+      # -------------------------
+      # COPY BACKSTAGE APP → REPO
+      - name: Copy Backstage App Into Repo
+        run: |
+          set -euo pipefail
+          rsync -a --delete --exclude='.git' /tmp/my-backstage-app/ "$GITHUB_WORKSPACE/"
+          ls -la "$GITHUB_WORKSPACE"
+          
+      # -------------------------
+      # INSTALL DEPENDENCIES
+      - name: Install Backstage Dependencies
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
-        run: yarn install
-
+        run: |
+          yarn install
+          
+      # -------------------------
+      # TYPE CHECK
       - name: Type Check
         run: yarn tsc
 
-      - name: Build Backend
-        run: yarn build:backend
-
-      - name: Setup Docker Buildx
+      # -------------------------
+      # BUILD BACKEND (must run to produce dist/bundle.tar.gz)
+      - name: Build Backstage Backend
+        run: |
+          set -euo pipefail
+          yarn build:backend
+          
+      # -------------------------
+      # VERIFY bundle exists (fail early if missing)
+      - name: Verify backend bundle exists
+        run: |
+          set -euo pipefail
+          ls -la packages/backend/dist || true
+          if [[ ! -f packages/backend/dist/bundle.tar.gz ]]; then
+            echo "ERROR: packages/backend/dist/bundle.tar.gz missing after build."
+            echo "Check 'yarn build:backend' logs for errors."
+            exit 1
+          fi
+          echo "✅ Backend bundle verified"
+          
+      # -------------------------
+      # SETUP DOCKER BUILDX
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker Image
-        run: docker build -f packages/backend/Dockerfile -t myorg/backstage-app:latest .
-
-      - name: Save Docker Image
-        run: docker save myorg/backstage-app:latest -o backstage-image.tar
-
-      - name: Upload Docker Artifact
+      # -------------------------
+      # BUILD DOCKER IMAGE
+      - name: Build Backstage Docker Image
+        working-directory: .
+        run: |
+          set -euo pipefail
+          if [[ ! -f packages/backend/Dockerfile ]]; then
+            echo "ERROR: packages/backend/Dockerfile not found."
+            exit 1
+          fi
+          docker build -f packages/backend/Dockerfile -t myorg/backstage-app:latest .
+          echo "✅ Docker image built successfully"
+          
+      # -------------------------
+      # SAVE DOCKER IMAGE AS TAR
+      - name: Save Docker image to tar
+        run: |
+          docker save myorg/backstage-app:latest -o backstage-image.tar
+          ls -lh backstage-image.tar
+          echo "✅ Docker image saved to backstage-image.tar"
+          
+      # -------------------------
+      # UPLOAD DOCKER IMAGE ARTIFACT
+      - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
         with:
           name: backstage-docker-image
           path: backstage-image.tar
+          retention-days: 7  # Keep artifact for 7 days
 
+      # -------------------------
+      # COMMIT & PUSH CHANGES
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --staged --quiet || git commit -m "Auto-generated Backstage app (latest version) [skip ci]"
+          git push || echo "⚠️ No changes to push"
