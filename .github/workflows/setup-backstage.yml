@@ -59,7 +59,7 @@ jobs:
           set -euo pipefail
           cd /tmp
           echo "Creating Backstage app..."
-          npx --yes @backstage/create-app@0.7.5 \
+          npx --yes @backstage/create-app@Latest\
             --path my-backstage-app \
             --skip-install \
             --no-private \
