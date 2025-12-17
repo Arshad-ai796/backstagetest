@@ -112,12 +112,14 @@ jobs:
           echo ""
 
    
-      - name: Step 5 - Install @backstage/create-app globally
+     
+      - name: Step 5 - Install @backstage/create-app and verify
         run: |
             printf "\n=== STEP 5: Installing @backstage/create-app globally ===\n"
             npm install -g @backstage/create-app@latest
             printf "\n✓ Installation complete\n"
-            backstage --version
+            npx @backstage/create-app@latest --version
+
 
 
       # ============================================
