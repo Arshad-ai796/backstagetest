@@ -1,3 +1,4 @@
+
 name: Build & Push Backstage
 
 on:
@@ -37,7 +38,6 @@ jobs:
           corepack enable
           corepack prepare yarn@4.4.1 --activate
           yarn -v
-          # Ensure classic node_modules linker (Backstage & many plugins expect it)
           echo "YARN_NODE_LINKER=node-modules" >> $GITHUB_ENV
           echo "YARN_ENABLE_IMMUTABLE_INSTALLS=false" >> $GITHUB_ENV
           echo "YARN_NPM_REGISTRY_SERVER=https://registry.npmjs.org" >> $GITHUB_ENV
@@ -53,7 +53,7 @@ jobs:
           docker compose version || true
 
       # -------------------------
-      # CREATE BACKSTAGE APP (pinned to a stable create-app version)
+      # CREATE BACKSTAGE APP (pinned to 1.7.7)
       - name: Create Backstage App (1.7.7)
         run: |
           set -euo pipefail
@@ -93,61 +93,9 @@ jobs:
           yarn config set httpTimeout 600000
 
       # -------------------------
-      # INSTALL DEPENDENCIES (reliable)
+      # INSTALL DEPENDENCIES
       - name: Install Backstage Dependencies
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
           YARN_NODE_LINKER: node-modules
         run: |
-          set -euo pipefail
-          yarn install --inline-builds
-
-      # -------------------------
-      # OPTIONAL: BUILD (sanity check)
-      - name: Build Backstage
-        run: |
-          set -euo          set -euo pipefail
-          yarn tsc -b
- 
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      # ============================================
-      # BUILD BACKEND
-      # ============================================
-      - name: Build Backstage Backend
-        if: github.event.inputs.create_app != 'false'
-        run: |
-          set -euo pipefail
-          
-          echo "╔════════════════════════════════════════╗"
-          echo "║     Building Backend                   ║"
-          echo "╚════════════════════════════════════════╝"
-          echo ""
-          
-          cd "$GITHUB_WORKSPACE"
-          yarn build:backend
-          
-          echo ""
-          echo "✓ Backend built successfully"
-
- 
-
-   =
-       
-   
