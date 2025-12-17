@@ -53,18 +53,30 @@ jobs:
           docker compose version || true
 
       # -------------------------
-      # CREATE BACKSTAGE APP (use a valid tag or latest)
-      - name: Create Backstage App 
+  
+# CREATE BACKSTAGE APP (latest; robust invocation)
+      - name: Create Backstage App (latest)
         run: |
           set -euo pipefail
+
+          # Sanity: ensure npm registry reachable and non-interactive
+          npm config set fund false
+          npm config set progress false
+          npm config set yes true
+          npm ping || { echo "❌ npm registry not reachable"; exit 1; }
+
           cd /tmp
-          echo "Creating Backstage app..."
-          npx --yes @backstage/create-app@latest\
-            --path my-backstage-app \
-            --skip-install \
-            --no-private \
-            --no-interactive
-          echo "Backstage app scaffolded."
+          echo "Creating Backstage app with latest create-app..."
+
+          # Use explicit binary via npx --package for reliable flag handling
+          npx --yes --package @backstage/create-app@latest \
+          backstage-create-app \
+          --path my-backstage-app \
+          --skip-install \
+          --no-interactive
+
+          echo "✅ Backstage app scaffolded at /tmp/my-backstage-app"
+
 
       # -------------------------
       # COPY SCAFFOLDED APP INTO WORKSPACE
