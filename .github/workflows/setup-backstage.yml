@@ -54,12 +54,12 @@ jobs:
 
       # -------------------------
       # CREATE BACKSTAGE APP (use a valid tag or latest)
-      - name: Create Backstage App (0.7.5)
+      - name: Create Backstage App 
         run: |
           set -euo pipefail
           cd /tmp
           echo "Creating Backstage app..."
-          npx --yes @backstage/create-app@Latest\
+          npx --yes @backstage/create-app@latest\
             --path my-backstage-app \
             --skip-install \
             --no-private \
