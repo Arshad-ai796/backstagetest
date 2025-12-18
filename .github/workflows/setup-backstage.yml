@@ -1,77 +1,74 @@
-name: Build & Deploy Backstage
-
+name: Setup Full Environment
+ 
 on:
   push:
-    branches:
-      - main
-
-permissions:
-  contents: write
-  packages: write
-
+ 
 jobs:
-  build-backstage:
-    runs-on: ubuntu-latest
-
+  setup-environment:
+    runs-on: self-hosted
+ 
     steps:
-      # 1️⃣ Checkout the repository
-      - name: Checkout Repository
+      # -------------------------
+      # CHECKOUT
+      - name: Checkout repository
         uses: actions/checkout@v4
-
-      # 2️⃣ Setup Node.js
-      - name: Setup Node.js 18.20.5
+ 
+      # -------------------------
+      # SETUP NODE
+      - name: Setup Node.js LTS
         uses: actions/setup-node@v4
         with:
-          node-version: '18.20.5'
-
-      # 3️⃣ Verify build tools
-      - name: Check installed tools
-        run: |
-          gcc --version
-          g++ --version
-          python3 --version
-          make --version
-
-      # 4️⃣ Enable Corepack for Yarn
-      - name: Enable Corepack
-        run: corepack enable
-
-      # 5️⃣ Create Backstage App (skip install)
-      - name: Create Backstage App
-        run: |
-          echo "backstage-app" | npx -y @backstage/create-app@latest --skip-install
-
-      # 6️⃣ Clean any previous Yarn artifacts
-      - name: Clean Yarn
-        working-directory: ./backstage-app
-        run: |
-          rm -rf node_modules .yarn/cache .yarn/unplugged .pnp.cjs
-          rm -f yarn.lock
-
-      # 7️⃣ Set Yarn version to 4.12.0
-      - name: Setup Yarn 4.12.0
-        working-directory: ./backstage-app
+          node-version: 'lts/iron'
+ 
+      # -------------------------
+      # ENABLE YARN 4.4.1
+      - name: Enable Yarn 4.4.1
         run: |
           corepack enable
-          yarn set version 4.12.0
-
-      # 8️⃣ Fresh Yarn install
-      - name: Yarn install
-        working-directory: ./backstage-app
-        run: yarn install --network-timeout 600000
-
-      # 9️⃣ Build backend
-      - name: Build Backend
-        working-directory: ./backstage-app
-        run: yarn build:backend
-
-      # 🔟 Type check (optional, won't fail workflow)
-      - name: Type Check
-        working-directory: ./backstage-app
-        run: yarn tsc --noEmit  
-        continue-on-error: true
-
-      # 1️⃣1️⃣ Copy Backstage app into repo root
+          corepack prepare yarn@4.4.1 --activate
+          yarn -v
+ 
+      # -------------------------
+      # VERIFY DOCKER
+      - name: Verify Docker
+        run: |
+          docker --version
+          docker compose version || true
+ 
+      # -------------------------
+      # CREATE BACKSTAGE APP
+      - name: Create Backstage App
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
+        run: |
+          cd /tmp
+          echo "my-backstage-app" | npx @backstage/create-app@latest
+ 
+      # -------------------------
+      # COPY BACKSTAGE APP → REPO
       - name: Copy Backstage App Into Repo
         run: |
-          rsync -av ./backstage-app/ $GITHUB_WORKSPACE/ --exclude=.git
+          rsync -av /tmp/my-backstage-app/ $GITHUB_WORKSPACE/ --exclude=.git
+ 
+      # -------------------------
+      # INSTALL DEPENDENCIES
+      - name: Install Backstage Dependencies
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
+        run: |
+          yarn install
+ 
+      # -------------------------
+      # TYPE CHECK
+      - name: Type Check
+        run: yarn tsc
+ 
+      # -------------------------
+      # BUILD BACKEND
+      - name: Build Backstage Backend
+        run: yarn build:backend
+ 
+      # -------------------------
+      # SETUP DOCKER BUILDX
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2
