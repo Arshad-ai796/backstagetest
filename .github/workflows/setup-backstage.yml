@@ -14,19 +14,25 @@ jobs:
         uses: actions/checkout@v4
  
       # -------------------------
-      # SETUP NODE
-      - name: Setup Node.js LTS
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/iron'
- 
-      # -------------------------
-      # ENABLE YARN 4.4.1
-      - name: Enable Yarn 4.4.1
+          node-version: '20.23.0'
+
+      # Step 2: Clean old installs
+      - name: Clean old node/yarn files
+        run: |
+          rm -rf node_modules
+          rm -f yarn.lock
+
+      # Step 3: Reinstall dependencies
+      - name: Install dependencies (Yarn 4)
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
           corepack enable
-          corepack prepare yarn@4.4.1 --activate
-          yarn -v
+          yarn set version stable
+          yarn install
  
       # -------------------------
       # VERIFY DOCKER
