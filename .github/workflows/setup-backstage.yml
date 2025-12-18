@@ -62,9 +62,8 @@ jobs:
       - name: Type Check
         working-directory: ./backstage-app
         run: yarn tsc || echo "Type check failed, continuing..."
-
-      - name: Build Backend
-        working-directory: ./backstage-app
+       
+      - name: Build Backstage backend
         run: yarn build:backend
 
       - name: Copy to Workspace Root
