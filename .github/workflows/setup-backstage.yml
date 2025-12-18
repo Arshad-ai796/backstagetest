@@ -12,68 +12,66 @@ permissions:
 jobs:
   build-backstage:
     runs-on: ubuntu-latest
-    
+
     steps:
+      # 1️⃣ Checkout the repository
       - name: Checkout Repository
         uses: actions/checkout@v4
-#        with:
-#          token: ${{ secrets.PAT_TOKEN }}
-#          fetch-depth: 0
 
-      - name: Setup Node.js  18.20.5
+      # 2️⃣ Setup Node.js
+      - name: Setup Node.js 18.20.5
         uses: actions/setup-node@v4
         with:
-          node-version:  '18.20.5'
+          node-version: '18.20.5'
 
-      - name: Install Build Dependencies
+      # 3️⃣ Verify build tools
+      - name: Check installed tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential python3 make g++
+          gcc --version
+          g++ --version
+          python3 --version
+          make --version
 
+      # 4️⃣ Enable Corepack for Yarn
       - name: Enable Corepack
         run: corepack enable
 
-      - name: Create Backstage App with Skip Install
+      # 5️⃣ Create Backstage App (skip install)
+      - name: Create Backstage App
         run: |
           echo "backstage-app" | npx -y @backstage/create-app@latest --skip-install
 
-      - name: Configure Yarn for CI
+      # 6️⃣ Clean any previous Yarn artifacts
+      - name: Clean Yarn
         working-directory: ./backstage-app
         run: |
-          echo "enableImmutableInstalls: false" >> .yarnrc.yml
-          cat .yarnrc.yml
+          rm -rf node_modules .yarn/cache .yarn/unplugged .pnp.cjs
+          rm -f yarn.lock
 
-      - name: Remove Problematic Dependencies
+      # 7️⃣ Set Yarn version to 4.12.0
+      - name: Setup Yarn 4.12.0
         working-directory: ./backstage-app
         run: |
-          # Remove isolated-vm from package.json if it exists
-          # This is often not needed for basic Backstage functionality
-          if grep -q "isolated-vm" package.json; then
-            echo "Removing isolated-vm dependency..."
-            npm pkg delete dependencies.isolated-vm
-          fi
+          corepack enable
+          yarn set version 4.12.0
 
-      - name: Yarn install (immutable, skip builds)
-        env:
-                YARN_ENABLE_IMMUTABLE_INSTALLS: true
-        run: |
-              yarn --version
-              yarn install --immutable --network-timeout 600000 --mode=skip-build
-     
-    
-      - name: Type check
-        run : yarn tsc --noEmit
-        continue-on-error : true
-       
-      
-      - name: Build Backstage backend
+      # 8️⃣ Install dependencies fresh
+      - name: Yarn install
+        working-directory: ./backstage-app
+        run: yarn install --network-timeout 600000
+
+      # 9️⃣ Build backend
+      - name: Build Backend
+        working-directory: ./backstage-app
         run: yarn build:backend
 
-      - name: Copy to Workspace Root
-        run: |
-          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'backstage-app' -exec rm -rf {} +
-          mv backstage-app/* .
-          mv backstage-app/.* . 2>/dev/null || true
-          rmdir backstage-app
+      # 🔟 Type check (optional, will not fail workflow)
+      - name: Type Check
+        working-directory: ./backstage-app
+        run: yarn tsc --noEmit
+        continue-on-error: true
 
-     
+      # 1️⃣1️⃣ Copy Backstage app into repo root
+      - name: Copy Backstage App Into Repo
+        run: |
+          rsync -av ./backstage-app/ $GITHUB_WORKSPACE/ --exclude=.git
