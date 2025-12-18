@@ -59,8 +59,7 @@ jobs:
         run: |
               yarn --version
               yarn install --immutable --network-timeout 600000 --mode=skip-build
-      - name: Type Check
-        working-directory: ./backstage-app
+     
     
       - name: Type check
         run : yarn tsc --noEmit
