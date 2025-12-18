@@ -62,7 +62,7 @@ jobs:
       - name: Type Check
         working-directory: ./backstage-app
     
-      - name: Type check (optional continue)
+      - name: Type check
         run: yarn tsc --noEmit
         continue-on-error: true
        
