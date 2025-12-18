@@ -16,9 +16,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.PAT_TOKEN }}
-          fetch-depth: 0
+  #      with:
+  #        token: ${{ secrets.PAT_TOKEN }}
+  #        fetch-depth: 0
 
       - name: Setup Node.js 20.18.1
         uses: actions/setup-node@v4
