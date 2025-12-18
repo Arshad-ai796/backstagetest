@@ -61,7 +61,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
           PYTHON: /usr/bin/python3
         run: |
-          yarn install --network-timeout 600000 --ignore-scripts
+          yarn install --immutable --network-timeout 600000 --mode=skip-build
           yarn install --network-timeout 600000
 
       - name: Type Check
