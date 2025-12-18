@@ -61,7 +61,10 @@ jobs:
               yarn install --immutable --network-timeout 600000 --mode=skip-build
       - name: Type Check
         working-directory: ./backstage-app
-        run: yarn tsc || echo "Type check failed, continuing..."
+    
+      - name: Type check (optional continue)
+        run: yarn tsc --noEmit
+        continue-on-error: true
        
       - name: Build Backstage backend
         run: yarn build:backend
