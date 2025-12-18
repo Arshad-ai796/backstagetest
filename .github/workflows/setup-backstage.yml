@@ -68,7 +68,7 @@ jobs:
       # 🔟 Type check (optional, won't fail workflow)
       - name: Type Check
         working-directory: ./backstage-app
-        run: yarn tsc --noEmit
+        run: yarn tsc --noEmit  
         continue-on-error: true
 
       # 1️⃣1️⃣ Copy Backstage app into repo root
