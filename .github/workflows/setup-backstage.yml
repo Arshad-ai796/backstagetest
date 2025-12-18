@@ -53,17 +53,12 @@ jobs:
             npm pkg delete dependencies.isolated-vm
           fi
 
-      - name: Install Dependencies
-        working-directory: ./backstage-app
+      - name: Yarn install (immutable, skip builds)
         env:
-          YARN_ENABLE_IMMUTABLE_INSTALLS: false
-          CI: false
-          NODE_OPTIONS: --max-old-space-size=8192
-          PYTHON: /usr/bin/python3
+                YARN_ENABLE_IMMUTABLE_INSTALLS: true
         run: |
-          yarn install --immutable --network-timeout 600000 --mode=skip-build
-          yarn install --network-timeout 600000
-
+              yarn --version
+              yarn install --immutable --network-timeout 600000 --mode=skip-build
       - name: Type Check
         working-directory: ./backstage-app
         run: yarn tsc || echo "Type check failed, continuing..."
