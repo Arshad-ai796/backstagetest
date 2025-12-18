@@ -66,6 +66,7 @@ jobs:
         run: yarn tsc --noEmit
         continue-on-error: true
        
+      
       - name: Build Backstage backend
         run: yarn build:backend
 
