@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js 18
         uses: actions/setup-node@v4
         with:
-          node-version: '18.20.4'
+          node-version: '18.19.1'
 
       # Step 2: Clean old installs
       - name: Clean old node/yarn files
