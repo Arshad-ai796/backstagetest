@@ -35,11 +35,11 @@ jobs:
         env:
            YARN_ENABLE_IMMUTABLE_INSTALLS: false
         run: |
-           corepack enable
-           yarn set version stable
-           yarn install --network-timeout 600000
-           yarn dedupe
-           yarn workspaces foreach -pt run rebuild || true
+              npm install -g yarn@4.4.1
+              yarn set version 4.4.1
+              yarn install --network-timeout 600000
+              yarn dedupe
+              yarn workspaces foreach -pt run rebuild || true
  
       # -------------------------
       # VERIFY DOCKER
