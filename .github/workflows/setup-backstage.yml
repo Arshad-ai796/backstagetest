@@ -85,6 +85,4 @@ jobs:
 
 
       
-      - name: Copy Backstage App Into Repo
-        run: |
-          rsync -av $GITHUB_WORKSPACE/backstage-app/ $GITHUB_WORKSPACE/ --exclude=.git
+   
