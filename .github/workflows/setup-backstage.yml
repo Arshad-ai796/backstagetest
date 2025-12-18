@@ -1,5 +1,4 @@
-
-name: Build & Push Backstage
+name: Build & Deploy Backstage
 
 on:
   push:
@@ -8,116 +7,58 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
-  setup-environment:
+  build-backstage:
     runs-on: ubuntu-latest
 
     steps:
-      # -------------------------
-      # CHECKOUT
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
-     #   with:
-     #     token: ${{ secrets.PAT_TOKEN }}
-      #    persist-credentials: true
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+          fetch-depth: 0
 
-      # -------------------------
-      # SETUP NODE (LTS Iron)
-      - name: Setup Node.js LTS (Iron)
+      - name: Setup Node.js 20.18.1
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/iron'
-          cache: 'yarn'
+          node-version: '20.18.1'
 
-      # -------------------------
-      # ENABLE YARN 4.4.1 + force node-modules linker
-      - name: Enable Yarn 4.4.1
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Create Backstage App with Skip Install
         run: |
-          set -euo pipefail
-          corepack enable
-          corepack prepare yarn@4.4.1 --activate
-          yarn -v
-          echo "YARN_NODE_LINKER=node-modules" >> $GITHUB_ENV
-          echo "YARN_ENABLE_IMMUTABLE_INSTALLS=false" >> $GITHUB_ENV
-          echo "YARN_NPM_REGISTRY_SERVER=https://registry.npmjs.org" >> $GITHUB_ENV
-          echo "YARN_ENABLE_GLOBAL_CACHE=true" >> $GITHUB_ENV
-          echo "YARN_GLOBAL_FOLDER=$HOME/.yarn/berry/cache" >> $GITHUB_ENV
+          echo "backstage-app" | npx -y @backstage/create-app@latest --skip-install
 
-      # -------------------------
-      # VERIFY DOCKER (optional)
-      - name: Verify Docker
+      - name: Configure Yarn for CI
+        working-directory: ./backstage-app
         run: |
-          set -euo pipefail
-          docker --version
-          docker compose version || true
+          echo "enableImmutableInstalls: false" >> .yarnrc.yml
 
-      # -------------------------
-  
-# CREATE BACKSTAGE APP (latest; robust invocation)
-      - name: Create Backstage App (latest)
-        run: |
-          set -euo pipefail
+          cat .yarnrc.yml
 
-          # Sanity: ensure npm registry reachable and non-interactive
-          npm config set fund false
-          npm config set progress false
-          npm config set yes true
-          npm ping || { echo "❌ npm registry not reachable"; exit 1; }
-
-          cd /tmp
-          echo "Creating Backstage app with latest create-app..."
-
-          # Use explicit binary via npx --package for reliable flag handling
-          npx --yes --package @backstage/create-app@latest \
-          backstage-create-app \
-          --path my-backstage-app \
-          --skip-install \
-          --no-interactive
-
-          echo "✅ Backstage app scaffolded at /tmp/my-backstage-app"
-
-
-      # -------------------------
-      # COPY SCAFFOLDED APP INTO WORKSPACE
-      - name: Copy Backstage App to workspace
-        run: |
-          set -euo pipefail
-          echo "Copying Backstage app to workspace..."
-          if [ ! -d "/tmp/my-backstage-app" ]; then
-            echo "❌ ERROR: /tmp/my-backstage-app does not exist"
-            echo "Contents of /tmp:"
-            ls -la /tmp
-            exit 1
-          fi
-          rsync -a --delete --exclude=.git /tmp/my-backstage-app/ "$GITHUB_WORKSPACE/"
-
-      # -------------------------
-      # YARN SETTINGS (repo-level)
-      - name: Configure Yarn in repo
-        run: |
-          set -euo pipefail
-          cd "$GITHUB_WORKSPACE"
-          yarn config set nodeLinker node-modules
-          yarn config set enableGlobalCache true
-          yarn config set npmRegistryServer "https://registry.npmjs.org"
-          yarn config set networkTimeout 600000
-          yarn config set httpTimeout 600000
-
-      # -------------------------
-      # INSTALL DEPENDENCIES
-      - name: Install Backstage Dependencies
+      - name: Install Dependencies
+        working-directory: ./backstage-app
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
-          YARN_NODE_LINKER: node-modules
+          CI: false
+          NODE_OPTIONS: --max-old-space-size=8192
         run: |
-          set -euo pipefail
-          yarn install --inline-builds
+          yarn install --network-timeout 600000
 
-      # -------------------------
-      # OPTIONAL: BUILD
-      - name: Build Backstage
+      - name: Type Check
+        working-directory: ./backstage-app
+        run: yarn tsc
+
+      - name: Build Backend
+        working-directory: ./backstage-app
+        run: yarn build:backend
+
+      - name: Copy to Workspace Root
         run: |
-          set -euo pipefail
-          yarn tsc -b
-         
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'backstage-app' -exec rm -rf {} +
+          mv backstage-app/* .
+          mv backstage-app/.* . 2>/dev/null || true
+          rmdir backstage-app
