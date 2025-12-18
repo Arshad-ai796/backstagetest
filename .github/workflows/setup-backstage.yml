@@ -20,10 +20,10 @@ jobs:
   #        token: ${{ secrets.PAT_TOKEN }}
   #        fetch-depth: 0
 
-      - name: Setup Node.js 20.18.1
+      - name: Setup Node.js  18.20.5
         uses: actions/setup-node@v4
         with:
-          node-version: '20.18.1'
+          node-version:  '18.20.5'
 
       - name: Enable Corepack
         run: corepack enable
