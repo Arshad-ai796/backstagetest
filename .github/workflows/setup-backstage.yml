@@ -95,10 +95,9 @@ jobs:
           echo "backstage-app" | npx @backstage/create-app --path ./backstage-app --skip-install
 
       # -------------------------
-      # INSTALL DEPENDENCIES
       - name: Install Backstage Dependencies
         working-directory: ./backstage-app
-        run: yarn install --frozen-lockfile
+        run: yarn install
 
       # -------------------------
       # TYPE CHECK
