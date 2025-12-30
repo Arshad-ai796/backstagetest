@@ -88,7 +88,17 @@ jobs:
           echo "npm version: $(npm -v)"
           echo "Yarn version: $(yarn -v)"
           echo "Global npm prefix: $(npm config get prefix)"
-      
+
+      # -------------------------
+      # CREATE BACKSTAGE APP
+      - name: Create Backstage App
+        run: |
+          npx @backstage/create-app --path ./backstage-app --skip-install
+          echo "Backstage app scaffolded successfully"
+          ls -la backstage-app/
+
+      # -------------------------
+      # INSTALL DEPENDENCIES
       - name: Install Backstage Dependencies
         working-directory: ./backstage-app
         run: yarn install --frozen-lockfile
@@ -129,3 +139,20 @@ jobs:
           gzip docker-artifacts/backstage-image.tar
           ls -lh docker-artifacts/
 
+      # -------------------------
+      # UPLOAD DOCKER IMAGE ARTIFACT
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backstage-docker-image-${{ github.sha }}
+          path: docker-artifacts/backstage-image.tar.gz
+          retention-days: 30
+
+      # -------------------------
+      # BUILD SUMMARY
+      - name: Build Summary
+        run: |
+          echo "=== Build Complete ==="
+          echo "Docker Image: myorg/backstage:latest"
+          echo "Artifact: backstage-image.tar.gz"
+          echo "Download from Actions artifacts to use"
