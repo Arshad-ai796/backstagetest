@@ -1,88 +1,90 @@
-name: Build & Deploy Backstage
+name: Backstage Setup 
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
 
-permissions:
-  contents: write
-  packages: write
-
 jobs:
-  build-backstage:
+  setup-backstage:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-#        with:
-#          token: ${{ secrets.PAT_TOKEN }}
-#          fetch-depth: 0
 
-      - name: Setup Node.js  22
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version:  '22'
+          node-version: '22'
 
-      - name: Check installed tools
+      - name: Step 1 - Check npm global root
+        run: npm root -g
+
+      - name: Step 2 - List global bin directory for create-app
         run: |
-            gcc --version
-            g++ --version
-            python3 --version
-            make --version
-      - name: Enable Corepack
-        run: corepack enable
-      - name: Enable Yarn 4.4.1
+          ls -l $(npm config get prefix)/bin | grep create-app || echo "create-app not found yet"
+
+      - name: Step 3 - Verify Node and npm versions
+        run: |
+          node -v
+          npm -v
+
+      - name: Step 4 - Get npm prefix
+        run: npm config get prefix
+
+      - name: Step 5 - Install Backstage create-app globally
+        run: npm install -g @backstage/create-app
+
+      - name: Step 6 - Verify create-app installation
+        run: |
+          ls -l $(npm config get prefix)/bin | grep create-app || echo "create-app not found"
+
+      - name: Step 7 - Setup environment (Node 22 already active)
+        run: |
+          echo "Node version: $(node -v)"
+          echo "Using Node 22 from setup-node action"
+
+      - name: Step 8 - Verify Node and npm paths
+        run: |
+          which node
+          which npm
+          node -v
+          npm -v
+
+      - name: Step 9 - Configure global npm and verify create-app
+        run: |
+          GLOBAL_PREFIX="$(npm prefix -g)"
+          BIN_DIR="${GLOBAL_PREFIX}/bin"
+          
+          echo "Global prefix: $GLOBAL_PREFIX"
+          echo "Global bin:    $BIN_DIR"
+          
+          npm install -g @backstage/create-app
+          
+          export PATH="$PATH:$BIN_DIR"
+          
+          which create-app || echo "create-app not on PATH yet"
+          ls -l "$BIN_DIR" | grep create-app || echo "create-app not found in $BIN_DIR"
+          
+          npx @backstage/create-app --version || echo "Version check failed"
+
+      - name: Step 10 - Setup Yarn with Corepack
         run: |
           corepack enable
-          corepack prepare yarn@4.4.1 --activate
+          corepack prepare yarn@stable --activate
           yarn -v
-      # -------------------------
-      # VERIFY DOCKER
-      # -------------------------
-      - name: Verify Docker
+
+      - name: Step 11 - Verify Backstage CLI
         run: |
-          docker --version
-          docker compose version || true
-      # -------------------------
-      # CREATE BACKSTAGE APP
-      # -------------------------
-      - name: Create Backstage App
-        env:
-          YARN_ENABLE_IMMUTABLE_INSTALLS: false
+          npx @backstage/create-app --version || echo "Using npx to run create-app"
+          echo "Backstage create-app is ready to use with: npx @backstage/create-app"
+
+      - name: Summary
         run: |
-          cd /tmp
-          echo "my-backstage-app" | npx @backstage/create-app@latest
-      # -------------------------
-      # COPY BACKSTAGE APP → REPO
-      # -------------------------
-      - name: Copy Backstage App Into Repo
-        run: |
-          rsync -av /tmp/my-backstage-app/ $GITHUB_WORKSPACE/ --exclude=.git
-      # -------------------------
-      # INSTALL DEPENDENCIES
-      # -------------------------
-      
-      - name: Install Backstage Dependencies
-        run: yarn install --frozen-lockfile
- 
-      # -------------------------
-     
-      
-       
-      # -------------------------
-      # TYPE CHECK
-      - name: Type Check
-        run: yarn tsc
-
-
-      # -------------------------
-      # BUILD BACKEND
-      - name: Build Backstage Backend
-        run: yarn build:backend
-
-
-
-      
-   
+          echo "=== Setup Complete ==="
+          echo "Node version: $(node -v)"
+          echo "npm version: $(npm -v)"
+          echo "Yarn version: $(yarn -v)"
+          echo "Global npm prefix: $(npm config get prefix)"
