@@ -90,12 +90,9 @@ jobs:
           echo "Global npm prefix: $(npm config get prefix)"
 
       # -------------------------
-      # CREATE BACKSTAGE APP
       - name: Create Backstage App
         run: |
-          npx @backstage/create-app --path ./backstage-app --skip-install
-          echo "Backstage app scaffolded successfully"
-          ls -la backstage-app/
+          echo "backstage-app" | npx @backstage/create-app --path ./backstage-app --skip-install
 
       # -------------------------
       # INSTALL DEPENDENCIES
