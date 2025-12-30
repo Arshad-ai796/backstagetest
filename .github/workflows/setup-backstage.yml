@@ -88,3 +88,44 @@ jobs:
           echo "npm version: $(npm -v)"
           echo "Yarn version: $(yarn -v)"
           echo "Global npm prefix: $(npm config get prefix)"
+      
+      - name: Install Backstage Dependencies
+        working-directory: ./backstage-app
+        run: yarn install --frozen-lockfile
+
+      # -------------------------
+      # TYPE CHECK
+      - name: Type Check
+        working-directory: ./backstage-app
+        run: yarn tsc
+
+      # -------------------------
+      # BUILD BACKEND
+      - name: Build Backstage Backend
+        working-directory: ./backstage-app
+        run: yarn build:backend
+
+      # -------------------------
+      # SETUP DOCKER BUILDX
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # -------------------------
+      # BUILD DOCKER IMAGE
+      - name: Build Backstage Docker Image
+        working-directory: ./backstage-app
+        run: |
+          docker buildx build . \
+            -f packages/backend/Dockerfile \
+            --tag myorg/backstage:latest \
+            --load
+
+      # -------------------------
+      # SAVE DOCKER IMAGE TO TAR FILE
+      - name: Save Docker Image to Artifact
+        run: |
+          mkdir -p docker-artifacts
+          docker save myorg/backstage:latest -o docker-artifacts/backstage-image.tar
+          gzip docker-artifacts/backstage-image.tar
+          ls -lh docker-artifacts/
+
