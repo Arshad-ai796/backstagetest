@@ -1,17 +1,3 @@
-# This dockerfile builds an image for the backend package.
-# It should be executed with the root of the repo as docker context.
-#
-# Before building this image, be sure to have run the following commands in the repo root:
-#
-# yarn install --immutable
-# yarn tsc
-# yarn build:backend
-#
-# Once the commands have been run, you can build the image using `yarn build-image`
-#
-# Alternatively, there is also a multi-stage Dockerfile documented here:
-# https://backstage.io/docs/deployment/docker#multi-stage-build
-
 FROM node:22-bookworm-slim
 
 # Set Python interpreter for `node-gyp` to use
@@ -32,15 +18,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y --no-install-recommends libsqlite3-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Enable Corepack and prepare Yarn 4 (must be done as root)
-RUN corepack enable && corepack prepare yarn@4.4.1 --activate
+# Enable Corepack and prepare Yarn 4 (must be done as root before USER node)
+RUN corepack enable && \
+    corepack prepare yarn@4.4.1 --activate
 
+# Create cache directories with proper permissions for node user
+RUN mkdir -p /home/node/.cache/node/corepack && \
+    chown -R node:node /home/node/.cache
 
 # From here on we use the least-privileged `node` user to run the backend.
 USER node
-
-# Enable Corepack for Yarn 4
-
 
 # This should create the app dir as `node`.
 # If it is instead created as `root` then the `tar` command below will fail: `can't create directory 'packages/': Permission denied`.
