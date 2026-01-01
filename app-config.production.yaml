@@ -29,7 +29,10 @@ backend:
       #     $file: <file-path>/ca/server.crt
 
 auth:
-    dangerouslyDisableDefaultAuthPolicy: true 
+  providers:
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
+  dangerouslyDisableDefaultAuthPolicy: true
 
 catalog:
   # Overrides the default list locations from app-config.yaml as these contain example data.
