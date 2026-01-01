@@ -32,7 +32,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y --no-install-recommends libsqlite3-dev && \
     rm -rf /var/lib/apt/lists/*
 
-RUN corepack enable
+# Enable Corepack and prepare Yarn 4 (must be done as root)
+RUN corepack enable && corepack prepare yarn@4.4.1 --activate
+
 
 # From here on we use the least-privileged `node` user to run the backend.
 USER node
