@@ -1,4 +1,4 @@
-name: Backstage Setup 
+name: Build Backstage Docker Image
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - main
 
 jobs:
-  setup-backstage:
+  build:
     runs-on: ubuntu-latest
     
     steps:
@@ -19,136 +19,47 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Step 1 - Check npm global root
-        run: npm root -g
-
-      - name: Step 2 - List global bin directory for create-app
-        run: |
-          ls -l $(npm config get prefix)/bin | grep create-app || echo "create-app not found yet"
-
-      - name: Step 3 - Verify Node and npm versions
-        run: |
-          node -v
-          npm -v
-
-      - name: Step 4 - Get npm prefix
-        run: npm config get prefix
-
-      - name: Step 5 - Install Backstage create-app globally
-        run: npm install -g @backstage/create-app
-
-      - name: Step 6 - Verify create-app installation
-        run: |
-          ls -l $(npm config get prefix)/bin | grep create-app || echo "create-app not found"
-
-      - name: Step 7 - Setup environment (Node 22 already active)
-        run: |
-          echo "Node version: $(node -v)"
-          echo "Using Node 22 from setup-node action"
-
-      - name: Step 8 - Verify Node and npm paths
-        run: |
-          which node
-          which npm
-          node -v
-          npm -v
-
-      - name: Step 9 - Configure global npm and verify create-app
-        run: |
-          GLOBAL_PREFIX="$(npm prefix -g)"
-          BIN_DIR="${GLOBAL_PREFIX}/bin"
-          
-          echo "Global prefix: $GLOBAL_PREFIX"
-          echo "Global bin:    $BIN_DIR"
-          
-          npm install -g @backstage/create-app
-          
-          export PATH="$PATH:$BIN_DIR"
-          
-          which create-app || echo "create-app not on PATH yet"
-          ls -l "$BIN_DIR" | grep create-app || echo "create-app not found in $BIN_DIR"
-          
-          npx @backstage/create-app --version || echo "Version check failed"
-
-      - name: Step 10 - Setup Yarn with Corepack
+      - name: Setup Yarn with Corepack
         run: |
           corepack enable
           corepack prepare yarn@stable --activate
           yarn -v
 
-      - name: Step 11 - Verify Backstage CLI
-        run: |
-          npx @backstage/create-app --version || echo "Using npx to run create-app"
-          echo "Backstage create-app is ready to use with: npx @backstage/create-app"
+      - name: Install Dependencies
+        run: yarn install --immutable
 
-      - name: Summary
-        run: |
-          echo "=== Setup Complete ==="
-          echo "Node version: $(node -v)"
-          echo "npm version: $(npm -v)"
-          echo "Yarn version: $(yarn -v)"
-          echo "Global npm prefix: $(npm config get prefix)"
-
-      # -------------------------
-      - name: Create Backstage App
-        run: |
-          echo "backstage-app" | npx @backstage/create-app --path ./backstage-app --skip-install
-
-      # -------------------------
-      - name: Install Backstage Dependencies
-        working-directory: ./backstage-app
-        run:  yarn install --no-immutable
-
-      # -------------------------
-      # TYPE CHECK
       - name: Type Check
-        working-directory: ./backstage-app
         run: yarn tsc
 
-      # -------------------------
-      # BUILD BACKEND
-      - name: Build Backstage Backend
-        working-directory: ./backstage-app
+      - name: Build Backend
         run: yarn build:backend
 
-      # -------------------------
-      # SETUP DOCKER BUILDX
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # -------------------------
-      # BUILD DOCKER IMAGE
-      - name: Build Backstage Docker Image
-        working-directory: ./backstage-app
+      - name: Build Docker Image
         run: |
           docker buildx build . \
             -f packages/backend/Dockerfile \
             --tag myorg/backstage:latest \
             --load
 
-      # -------------------------
-      # SAVE DOCKER IMAGE TO TAR FILE
-      - name: Save Docker Image to Artifact
+      - name: Save Docker Image
         run: |
           mkdir -p docker-artifacts
           docker save myorg/backstage:latest -o docker-artifacts/backstage-image.tar
           gzip docker-artifacts/backstage-image.tar
           ls -lh docker-artifacts/
 
-      # -------------------------
-      # UPLOAD DOCKER IMAGE ARTIFACT
-      - name: Upload Docker Image Artifact
+      - name: Upload Docker Image
         uses: actions/upload-artifact@v4
         with:
           name: backstage-docker-image-${{ github.sha }}
           path: docker-artifacts/backstage-image.tar.gz
           retention-days: 30
 
-      # -------------------------
-      # BUILD SUMMARY
       - name: Build Summary
         run: |
           echo "=== Build Complete ==="
           echo "Docker Image: myorg/backstage:latest"
           echo "Artifact: backstage-image.tar.gz"
-          echo "Download from Actions artifacts to use"
